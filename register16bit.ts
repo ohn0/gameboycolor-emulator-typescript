@@ -59,6 +59,7 @@ export class HiLoRegister extends Register16Bit{
     public getRegister(){
         if(this.LoRegister !== undefined  && this.HiRegister !== undefined){
             this.value = this.HiRegister.register._ << 8 | this.LoRegister.register._;
+            return this.value;
         }
         else if(this.HiRegister !== undefined){
             return this.HiRegister.register._ << 8 | 0;
