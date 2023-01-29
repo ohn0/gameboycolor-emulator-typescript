@@ -1,0 +1,21 @@
+{
+    "files":[
+        "cpu.ts",
+        "register.ts",
+        "register16bit.ts",
+        "uint8.ts",
+        "uint16.ts"
+    ],
+    "compilerOptions": {
+        "strict": true,
+        "target": "ES5",
+        "outDir": "output"
+    },
+    "ts-node": {
+        "transpileOnly": true,
+        "files": true,
+        "compilerOptions": {
+            "rootDir": "."
+        }
+    }
+}
