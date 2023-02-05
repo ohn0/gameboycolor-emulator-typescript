@@ -3,8 +3,8 @@
         "cpu.ts",
         "register.ts",
         "register16bit.ts",
-        "uint8.ts",
-        "uint16.ts"
+        "primitives/uint8.ts",
+        "primitives/uint16.ts"
     ],
     "compilerOptions": {
         "strict": true,

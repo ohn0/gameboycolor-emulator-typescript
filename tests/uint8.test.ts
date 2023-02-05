@@ -1,4 +1,4 @@
-import { Uint8 } from '../uint8';
+import { Uint8 } from '../primitives/uint8';
 import { describe, expect, test } from '@jest/globals';
 
 describe('uint8 testing', () => {

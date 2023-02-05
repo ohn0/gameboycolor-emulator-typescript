@@ -1,4 +1,4 @@
-import {Register8bit} from './register';
+import { Register8bit, FlagRegister } from './register';
 import {HiLoRegister, StackPointer, ProgramCounter} from './register16bit';
 
 export class CPU {
@@ -8,6 +8,7 @@ export class CPU {
     private C: Register8bit;
     private D: Register8bit;
     private E: Register8bit;
+    private F: FlagRegister;
     private H: Register8bit;
     private L: Register8bit;
 
@@ -24,14 +25,15 @@ export class CPU {
         this.C = new Register8bit(0);
         this.D = new Register8bit(0);
         this.E = new Register8bit(0);
+        this.F = new FlagRegister();
         this.H = new Register8bit(0);
         this.L = new Register8bit(0);
 
-        this.AF = new HiLoRegister(this.A, undefined, "AF");
+        this.AF = new HiLoRegister(this.A, this.F, "AF");
         this.BC = new HiLoRegister(this.B, this.C, "BC");
         this.DE = new HiLoRegister(this.D, this.E, "DE");
         this.HL = new HiLoRegister(this.H, this.L, "HL");
-
+        
         this.SP = new StackPointer("Stack Pointer");
         this.PC = new ProgramCounter("Program Counter");
     }

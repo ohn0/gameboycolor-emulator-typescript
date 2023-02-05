@@ -20,7 +20,7 @@ describe('register16bit testing', () => {
         let a = new Register16Bit("register");
         expect(a.registerName).toBe("register");
     });
-})
+});
 
 describe('HiLoRegister testing', () => {
     let aHiLo = new HiLoRegister(new Register8bit(0xAA), new Register8bit(0xBB), "AB Register");
@@ -33,5 +33,11 @@ describe('HiLoRegister testing', () => {
     test('getRegister returns Hi and Lo registers as a single 16bit value when both are defined', () => {
         let value = aHiLo.getRegister();
         expect(value).toBe(0xAABB);
-    })
-})
+    });
+
+    test('getRegister returns  Hi register shifted right 8 when Lo register is not defined', () => {
+        aHiLo.LoRegister = undefined;
+        let value = aHiLo.getRegister();
+        expect(aHiLo.getRegister()).toBe(0xAA00);
+    });
+});
