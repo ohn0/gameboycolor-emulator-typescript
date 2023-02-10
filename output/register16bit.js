@@ -28,7 +28,9 @@ var Register16Bit = /** @class */ (function () {
             if (value > 65535) {
                 throw new Error("ERROR: cannot set register " + this.registerName + " value to " + value + ". Value must be less than 65535");
             }
-            this._value = value;
+            else {
+                this._value = value;
+            }
         },
         enumerable: false,
         configurable: true
@@ -77,6 +79,7 @@ var HiLoRegister = /** @class */ (function (_super) {
     HiLoRegister.prototype.getRegister = function () {
         if (this.LoRegister !== undefined && this.HiRegister !== undefined) {
             this.value = this.HiRegister.register._ << 8 | this.LoRegister.register._;
+            return this.value;
         }
         else if (this.HiRegister !== undefined) {
             return this.HiRegister.register._ << 8 | 0;
