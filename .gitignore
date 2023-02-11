@@ -3,3 +3,4 @@ coverage/
 *.mjs
 package.json
 package-lock.json
+output/
