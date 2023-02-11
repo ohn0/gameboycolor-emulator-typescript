@@ -3,6 +3,8 @@ import {HiLoRegister, StackPointer, ProgramCounter} from './register16bit';
 
 export class CPU {
     
+
+    private RAM: Uint8Array;
     private A: Register8bit;
     private B: Register8bit;
     private C: Register8bit;
@@ -18,7 +20,9 @@ export class CPU {
     private HL: HiLoRegister;
     private SP: StackPointer;
     private PC: ProgramCounter;
-    
+
+    private opCodesLibrary: {} | undefined;
+
     constructor() {
         this.A = new Register8bit(0);
         this.B = new Register8bit(0);
@@ -36,7 +40,47 @@ export class CPU {
         
         this.SP = new StackPointer("Stack Pointer");
         this.PC = new ProgramCounter("Program Counter");
+
+        this.RAM = new Uint8Array(0xFFFF);
+
     }
 
+    updateFlags(value: number) {
+        
+    }
+
+    executeOpcode(code: number) {
+        return null;
+    }
+
+    NOP() { //0x00
+
+    }
+
+    LDBCD16(d16 : number) { //0x01
+        this.BC.value = d16;
+    }
+
+    LDBCA() { //0x02
+        this.RAM[this.BC.value] = this.A.register._;
+    }
+
+    INCBC() {
+        this.BC.value++;
+
+    }
+
+    populateOpCodes() {
+        let _this = this;
+        this.opCodesLibrary = {
+            0x00: function () { },
+            0x01: function (d16: number) {
+                _this.BC.value = d16;
+            },
+            0x02: function () {
+                _this.RAM[_this.BC.value] = _this.A.register._;
+            }
+        }
+    }
 
 }

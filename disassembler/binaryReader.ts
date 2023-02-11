@@ -42,7 +42,7 @@ export class binaryReader{
     }
 
      read8bits(offset = 0): number {
-        return this.binary.readUInt8()
+         return this.binary.readUInt8(offset);
     }
 }
 
