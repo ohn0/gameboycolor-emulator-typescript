@@ -21,14 +21,17 @@ export class Uint16{
         this._Lo8bits = value;
     }
 
+    public get (): number {
+        return this._;
+    }
+    public set (value: number) {
+        this._ = value;
+    }
+
     constructor(Hi : number, Lo : number) {
         this.Hi8bits = new Uint8(Hi);
         this.Lo8bits = new Uint8(Lo);
-        this._ = this.Hi8bits._ << 8 | this.Lo8bits._
-    }
-
-    public get() {
-        return this._;
+        this._ = this.Hi8bits._ << 8 | this.Lo8bits._;
     }
 
 }
