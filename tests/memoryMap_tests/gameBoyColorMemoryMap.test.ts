@@ -3,7 +3,7 @@ import { GameBoyMemoryMap } from "../../GameBoyColorMemoryMap";
 import { describe,expect, test } from "@jest/globals";
 
 describe('Gameboy Color memory map testing', () => {
-    let gbcMap = new GameBoyMemoryMap();
+    let gbcMap = new GameBoyMemoryMap("MBC0");
     test('memory map is created with an existing buffer', () => {
         expect(gbcMap.memory).not.toBeNull();
     })
@@ -25,7 +25,7 @@ describe('Gameboy Color memory map testing', () => {
 
     test('memory map returns correct region given N', () => {
         expect(gbcMap.getMemoryRegion(0x0010)).toBe(gbcMap.ROM_BANK);
-        expect(gbcMap.getMemoryRegion(0x4100)).toBe(gbcMap.ROM_BANKN);
+        expect(gbcMap.getMemoryRegion(0x4100)).toBe(gbcMap.ROM_BANK_CONFIGURABLE);
         expect(gbcMap.getMemoryRegion(0x8010)).toBe(gbcMap.VRAM);
         expect(gbcMap.getMemoryRegion(0xA001)).toBe(gbcMap.externalRAM);
         expect(gbcMap.getMemoryRegion(0xC010)).toBe(gbcMap.WRAM);
@@ -43,7 +43,7 @@ describe('Gameboy Color memory map testing', () => {
         testUint8Block[0x100] = 0xAB;
         gbcMap.memory = testUint8Block;
         let test8BitValue = gbcMap.read8bit(0x100);
-        expect(test8BitValue._).toBe(0xAB);
+        expect(test8BitValue.value).toBe(0xAB);
     })
 
     test('read16bit returns correct 16bit little endian value at specified index', () => {
@@ -59,12 +59,13 @@ describe('Gameboy Color memory map testing', () => {
     test('write8bit inserts 8 bit value into memory at specified location', () => {
         let value: number = 0xAA;
         gbcMap.write8bit(0x100, value);
-        expect(gbcMap.read8bit(0x100)._).toBe(value);
+        expect(gbcMap.read8bit(0x100).value).toBe(value);
     })
 
     test('write16bit inserts 16 bit value into memory at specified location', () => {
         gbcMap.write16bit(0x500, new Uint16(0xBC, 0xDE));
         expect(gbcMap.read16bit(0x500).get()).toBe(0xBCDE);
+        let z: Uint16 = new Uint16(0xAA, 0xBB);
     })
 
     test('write8bit throws error when inserting value greater than 0xFF', () => {

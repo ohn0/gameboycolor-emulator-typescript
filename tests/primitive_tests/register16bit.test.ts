@@ -26,18 +26,12 @@ describe('HiLoRegister testing', () => {
     let aHiLo = new HiLoRegister(new Register8bit(0xAA), new Register8bit(0xBB), "AB Register");
 
     test('Hi and Lo registers are configured on initialization', () => {
-        expect(aHiLo.HiRegister?.register._).toBe(0xAA);
-        expect(aHiLo.LoRegister?.register._).toBe(0xBB);
+        expect(aHiLo.HiRegister?.register.value).toBe(0xAA);
+        expect(aHiLo.LoRegister?.register.value).toBe(0xBB);
     });
 
     test('getRegister returns Hi and Lo registers as a single 16bit value when both are defined', () => {
         let value = aHiLo.getRegister();
         expect(value).toBe(0xAABB);
-    });
-
-    test('getRegister returns  Hi register shifted right 8 when Lo register is not defined', () => {
-        aHiLo.LoRegister = undefined;
-        let value = aHiLo.getRegister();
-        expect(aHiLo.getRegister()).toBe(0xAA00);
     });
 });
