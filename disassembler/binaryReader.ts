@@ -19,6 +19,12 @@ export class binaryReader{
         this._path = value;
     }
 
+    constructor(path: string) {
+        if (path !== "") {
+            this.loadBinarySync(path);
+        }
+    }
+
     loadBinary(path: string) : Promise<Buffer> {
         this.path = path;
         return new Promise<Buffer>(function (resolve, reject) {
@@ -35,14 +41,13 @@ export class binaryReader{
         return this.binary;
     }
 
-    constructor(path: string) {
-        if (path !== "") {
-            this.loadBinarySync(path);
-        }
-    }
+    read(offset = 0): number {
+        try {
+            return this.binary.readUInt8(offset);
+        } catch (error) {
+            throw error;
+        } 
 
-     read8bits(offset = 0): number {
-         return this.binary.readUInt8(offset);
     }
 }
 
