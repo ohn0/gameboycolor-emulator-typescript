@@ -1,20 +1,24 @@
 export class Uint8{
-    private value! : number;
+    private _value! : number;
 
-    public get _() {
-        return this.value;
+    public get value() {
+        return this._value;
     }
 
-    public set _(value) {
-        if (value > 255) {
-            this.value = 255;
+    public set value(value) {
+        if (value > 0xFF) {
+            this._value = (value & 0xFF);
         }
         else {
-            this.value = value;
+            this._value = value;
         }
     }
 
     constructor(value: number) {
-        this._ = value;
+        this.value = value;
+    }
+
+    public leftShiftWithCarry(shiftByN: number) {
+        
     }
 }

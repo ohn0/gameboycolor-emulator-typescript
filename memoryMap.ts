@@ -31,7 +31,7 @@ export class MemoryMap{
     }
 
     public write16bit(index: number, value: Uint16): void {
-        this.write8bit(index, value.Lo8bits._);
-        this.write8bit(index + 1, value.Hi8bits._);
+        this.write8bit(index, value.Lo8bits.value);
+        this.write8bit(index + 1, value.Hi8bits.value);
     }
 }

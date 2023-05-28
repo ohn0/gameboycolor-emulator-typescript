@@ -1,9 +1,9 @@
 import { MemoryMap } from './memoryMap';
-
+import { iMBC } from './MemoryBankControllers/iMBC';
 export class GameBoyMemoryMap extends MemoryMap {
 
     private readonly _romBank0 =                0x0000;
-    private readonly _romBankN =                0x4000;
+    private readonly _romBankConfigurable =     0x4000;
     private readonly _videoRAM =                0x8000;
     private readonly _externalRAM =             0xA000;
     private readonly _workRAM =                 0xC000;
@@ -14,9 +14,11 @@ export class GameBoyMemoryMap extends MemoryMap {
     private readonly _IORegisters =             0xFF00;
     private readonly _highRAM =                 0xFF80;
     private readonly _interruptEnableRegister = 0xFFFF;
+    private _memoryBank! : iMBC; 
+
 
     public readonly ROM_BANK:                  string = "ROM BANK 0";
-    public readonly ROM_BANKN:                 string = "ROM BANK N";
+    public readonly ROM_BANK_CONFIGURABLE:     string = "ROM BANK CONFIGURABLE";
     public readonly VRAM:                      string = "VRAM";
     public readonly externalRAM:               string = "EXTERNAL RAM";
     public readonly WRAM:                      string = "WRAM";
@@ -28,17 +30,17 @@ export class GameBoyMemoryMap extends MemoryMap {
     public readonly HIGH_RAM:                  string = "HIGH RAM";
     public readonly INTERRUPT_ENABLE_REGISTER: string = "INTERRUPT ENABLE REGISTER";
 
-    constructor() {
+    constructor(mbcType : string) {
         super(0xFFFF);
         this.fillMap(0x00);
     }
 
     public getMemoryRegion(byte : number) : string {
-        if (byte >= this._romBank0 && byte < this._romBankN) {
+        if (byte >= this._romBank0 && byte < this._romBankConfigurable) {
             return this.ROM_BANK;
         }
-        else if (byte >= this._romBankN && byte < this._videoRAM) {
-            return this.ROM_BANKN;
+        else if (byte >= this._romBankConfigurable && byte < this._videoRAM) {
+            return this.ROM_BANK_CONFIGURABLE;
         }
         else if (byte >= this._videoRAM && byte < this._externalRAM) {
             return this.VRAM;
@@ -70,9 +72,6 @@ export class GameBoyMemoryMap extends MemoryMap {
         else {
             return this.INTERRUPT_ENABLE_REGISTER;
         }
-
-        
-
     }
 
     public fillMap(value: number): void {
@@ -80,5 +79,13 @@ export class GameBoyMemoryMap extends MemoryMap {
             throw new Error("value is not an 8bit integer");
         }
         this.memory.forEach(byte => byte = value);
+    }
+
+    public write(index: number, value: number): boolean {
+        if (index < 0x8000) {
+            this._memoryBank.interceptWrite({index, value});
+        }
+
+        return true;
     }
 }

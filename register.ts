@@ -1,14 +1,14 @@
 import { Uint8 } from "./primitives/uint8"
 
 export class Register8bit{
-    private _register!: Uint8;
+    private _value!: Uint8;
 
     public get register() {
-        return this._register;
+        return this._value;
     }
 
     public set register(value) {
-        this._register = value;
+        this._value = value;
     }
 
     constructor(value: number) {

@@ -2,7 +2,6 @@ import { Register8bit, FlagRegister } from './register';
 import {HiLoRegister, StackPointer, ProgramCounter} from './register16bit';
 
 export class CPU {
-    
 
     private RAM: Uint8Array;
     private A: Register8bit;
@@ -21,7 +20,7 @@ export class CPU {
     private SP: StackPointer;
     private PC: ProgramCounter;
 
-    private opCodesLibrary: {} | undefined;
+    private opCodesLibrary!: {[code : number] : (...args: number[]) => void};
 
     constructor() {
         this.A = new Register8bit(0);
@@ -43,44 +42,86 @@ export class CPU {
 
         this.RAM = new Uint8Array(0xFFFF);
 
+        this.populateOpcodes();
+
     }
 
-    updateFlags(value: number) {
+    readA(): Register8bit {
+        return this.A;
+    }
+
+    readB(): Register8bit {
+        return this.B;
+    }
+
+    readC(): Register8bit {
+        return this.C;
+    }
+
+    readD(): Register8bit {
+        return this.D;
+    }
+
+    readE(): Register8bit {
+        return this.E;
+    }
+
+    readF(): Register8bit {
+        return this.F;
+    }
+
+    readH(): Register8bit {
+        return this.H;
+    }
+
+    readL(): Register8bit {
+        return this.L;
+    }
+
+    readAF(): HiLoRegister {
+        return this.AF;
+    }
+
+    readBC(): HiLoRegister {
+        return this.BC;
+    }
+
+    updateFlags(value: number, flagState: string) {
         
     }
 
-    executeOpcode(code: number) {
-        return null;
+    executeOpcode(code: number, ...codeParams: number[]) {
+        this.opCodesLibrary[code](...codeParams);
     }
 
-    NOP() { //0x00
-
+    readMemory(address: number): number {
+        return this.RAM[address];
     }
 
-    LDBCD16(d16 : number) { //0x01
-        this.BC.value = d16;
-    }
-
-    LDBCA() { //0x02
-        this.RAM[this.BC.value] = this.A.register._;
-    }
-
-    INCBC() {
-        this.BC.value++;
-
-    }
-
-    populateOpCodes() {
-        let _this = this;
+    populateOpcodes() {
         this.opCodesLibrary = {
-            0x00: function () { },
-            0x01: function (d16: number) {
-                _this.BC.value = d16;
+            0x00: () => {},
+            0x01: (d16: number) => this.BC.setRegister(d16),
+            0x02: () => this.RAM[this.BC.value] = this.A.register.value,
+            0x03: () => this.BC.value++,
+            0x04: () => {
+                this.B.register.value++;
+                this.updateFlags(this.B.register.value, "z0h-");
             },
-            0x02: function () {
-                _this.RAM[_this.BC.value] = _this.A.register._;
-            }
+            0x05: () => {
+                this.B.register.value--;
+                this.updateFlags(this.B.register.value, "z1h-");
+            },
+            0x06: (d8: number) => this.B.register.value = d8,
+            0x07: () => {
+                let seventh_bit_value = 0x80 & this.A.register.value;
+                this.A.register.value <<= 1;
+                this.A.register.value &= 0xFF;
+                seventh_bit_value == 0
+                    ? this.A.register.value &= 0xFE : this.A.register.value |= 1;
+                this.updateFlags(this.A.register.value, "000c");
+            },
+            0x3E: (d8: number) => this.A.register.value = d8,
         }
     }
-
 }
