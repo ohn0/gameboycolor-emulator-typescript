@@ -1,4 +1,4 @@
-import { CPU } from '../../cpu';
+import { CPU } from '../../emulator/cpu/cpu';
 import { describe, expect, test } from "@jest/globals";
 
 describe('CPU opcode testing',() => {

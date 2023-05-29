@@ -1,5 +1,7 @@
 import { Register8bit, FlagRegister } from './register';
-import {HiLoRegister, StackPointer, ProgramCounter} from './register16bit';
+import { ProgramCounter } from "./ProgramCounter";
+import { StackPointer } from "./StackPointer";
+import { HiLoRegister } from "./HiLoRegister";
 
 export class CPU {
 
@@ -43,7 +45,46 @@ export class CPU {
         this.RAM = new Uint8Array(0xFFFF);
 
         this.populateOpcodes();
+    }
 
+    populateOpcodes() {
+        this.opCodesLibrary = {
+            0x00: () => {},
+            0x01: (d16: number) => this.BC.setRegister(d16),
+            0x02: () => this.RAM[this.BC.value] = this.A.register.value,
+            0x03: () => this.BC.value++,
+            0x04: () => {
+                this.B.register.value++;
+                this.updateFlags(this.B.register.value, "z0h-");
+            },
+            0x05: () => {
+                this.B.register.value--;
+                this.updateFlags(this.B.register.value, "z1h-");
+            },
+            0x06: (d8: number) => this.B.register.value = d8,
+            0x07: () => {
+                let seventh_bit_value = 0x80 & this.A.register.value;
+                this.A.register.value <<= 1;
+                this.A.register.value &= 0xFF;
+                seventh_bit_value == 0
+                    ? this.A.register.value &= 0xFE : this.A.register.value |= 1;
+                this.updateFlags(this.A.register.value, "000c");
+            },
+            0x3E: (d8: number) => this.A.register.value = d8,
+        }
+    }
+
+    
+    updateFlags(value: number, flagState: string) {
+        
+    }
+
+    executeOpcode(code: number, ...codeParams: number[]) {
+        this.opCodesLibrary[code](...codeParams);
+    }
+
+    readMemory(address: number): number {
+        return this.RAM[address];
     }
 
     readA(): Register8bit {
@@ -86,42 +127,6 @@ export class CPU {
         return this.BC;
     }
 
-    updateFlags(value: number, flagState: string) {
-        
-    }
 
-    executeOpcode(code: number, ...codeParams: number[]) {
-        this.opCodesLibrary[code](...codeParams);
-    }
 
-    readMemory(address: number): number {
-        return this.RAM[address];
-    }
-
-    populateOpcodes() {
-        this.opCodesLibrary = {
-            0x00: () => {},
-            0x01: (d16: number) => this.BC.setRegister(d16),
-            0x02: () => this.RAM[this.BC.value] = this.A.register.value,
-            0x03: () => this.BC.value++,
-            0x04: () => {
-                this.B.register.value++;
-                this.updateFlags(this.B.register.value, "z0h-");
-            },
-            0x05: () => {
-                this.B.register.value--;
-                this.updateFlags(this.B.register.value, "z1h-");
-            },
-            0x06: (d8: number) => this.B.register.value = d8,
-            0x07: () => {
-                let seventh_bit_value = 0x80 & this.A.register.value;
-                this.A.register.value <<= 1;
-                this.A.register.value &= 0xFF;
-                seventh_bit_value == 0
-                    ? this.A.register.value &= 0xFE : this.A.register.value |= 1;
-                this.updateFlags(this.A.register.value, "000c");
-            },
-            0x3E: (d8: number) => this.A.register.value = d8,
-        }
-    }
 }

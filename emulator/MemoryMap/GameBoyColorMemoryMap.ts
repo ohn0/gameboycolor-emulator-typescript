@@ -1,5 +1,5 @@
 import { MemoryMap } from './memoryMap';
-import { iMBC } from './MemoryBankControllers/iMBC';
+import { iMBC } from '../MemoryBankControllers/iMBC';
 export class GameBoyMemoryMap extends MemoryMap {
 
     private readonly _romBank0 =                0x0000;

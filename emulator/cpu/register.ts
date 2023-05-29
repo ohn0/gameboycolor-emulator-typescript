@@ -1,4 +1,4 @@
-import { Uint8 } from "./primitives/uint8"
+import { Uint8 } from "../../primitives/uint8"
 
 export class Register8bit{
     private _value!: Uint8;

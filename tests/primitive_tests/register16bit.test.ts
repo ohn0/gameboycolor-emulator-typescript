@@ -1,6 +1,7 @@
-import { Register16Bit, HiLoRegister } from '../../register16bit';
+import { Register16Bit } from '../../emulator/cpu/register16bit';
 import { describe, expect, test } from '@jest/globals';
-import { Register8bit } from '../../register';
+import { Register8bit } from '../../emulator/cpu/register';
+import { HiLoRegister } from '../../emulator/cpu/HiLoRegister';
 
 describe('register16bit testing', () => {
     test('16 bit register throws when value set to numbers greater than 65535', () => {

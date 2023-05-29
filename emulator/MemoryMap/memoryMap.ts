@@ -1,5 +1,5 @@
-import { Uint16 } from './primitives/uint16';
-import { Uint8 } from './primitives/uint8';
+import { Uint16 } from '../../primitives/uint16';
+import { Uint8 } from '../../primitives/uint8';
 export class MemoryMap{
     
     private _memory!: Uint8Array;

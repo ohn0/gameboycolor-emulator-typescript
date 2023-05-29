@@ -1,10 +1,13 @@
 {
     "files":[
-        "cpu.ts",
-        "register.ts",
-        "register16bit.ts",
+        "emulator/cpu/cpu.ts",
+        "emulator/cpu/register.ts",
+        "emulator/cpu/register16bit.ts",
         "primitives/uint8.ts",
-        "primitives/uint16.ts"
+        "primitives/uint16.ts",
+        "emulator/cpu/HiLoRegister.ts",
+        "emulator/cpu/StackPointer.ts",
+        "emulator/cpu/ProgramCounter.ts"
     ],
     "compilerOptions": {
         "strict": true,
