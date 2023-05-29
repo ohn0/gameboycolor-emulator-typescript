@@ -51,8 +51,8 @@ export class CPU {
         this.opCodesLibrary = {
             0x00: () => {},
             0x01: (d16: number) => this.BC.setRegister(d16),
-            0x02: () => this.RAM[this.BC.value] = this.A.register.value,
-            0x03: () => this.BC.value++,
+            0x02: () => this.RAM[this.BC.getRegisterValue()] = this.A.register.value,
+            0x03: () => this.BC.setRegister(this.BC.getRegisterValue()+1),
             0x04: () => {
                 this.B.register.value++;
                 this.updateFlags(this.B.register.value, "z0h-");
@@ -70,6 +70,14 @@ export class CPU {
                     ? this.A.register.value &= 0xFE : this.A.register.value |= 1;
                 this.updateFlags(this.A.register.value, "000c");
             },
+            0x08: (a16: number) => this.RAM[a16] = this.SP.getStackValue(),
+            0x09: () => {
+                this.HL.setRegister(this.HL.getRegisterValue() + this.BC.getRegisterValue());
+                this.updateFlags(this.HL.getRegisterValue(),"-0hc");
+            },
+            0x0A: () => this.A.register.value = this.RAM[this.BC.getRegisterValue()],
+            0x21: (d16: number) => this.HL.setRegister(d16),
+            0x31: (d16: number) => this.SP.setStackValue(d16),
             0x3E: (d8: number) => this.A.register.value = d8,
         }
     }
@@ -127,6 +135,13 @@ export class CPU {
         return this.BC;
     }
 
+    readHL(): HiLoRegister {
+        return this.HL;
+    }
+
+    readSP(): StackPointer {
+        return this.SP;
+    }
 
 
 }

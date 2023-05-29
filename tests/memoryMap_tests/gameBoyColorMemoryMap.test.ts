@@ -1,5 +1,5 @@
+import { GameBoyMemoryMap } from '../../emulator/MemoryMap/GameBoyColorMemoryMap';
 import { Uint16 } from './../../primitives/uint16';
-import { GameBoyMemoryMap } from "../../GameBoyColorMemoryMap";
 import { describe,expect, test } from "@jest/globals";
 
 describe('Gameboy Color memory map testing', () => {

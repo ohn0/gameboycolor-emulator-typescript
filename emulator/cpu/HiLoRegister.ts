@@ -26,19 +26,11 @@ export class HiLoRegister extends Register16Bit {
         super(RegisterName);
         this.HiRegister = Hi;
         this.LoRegister = Lo;
+        this.value = (this.HiRegister.register.value << 8) | this.LoRegister.register.value;
     }
 
-    public getRegister() {
-        if (this.LoRegister !== undefined && this.HiRegister !== undefined) {
-            this.value = this.HiRegister.register.value << 8 | this.LoRegister.register.value;
-            return this.value;
-        }
-        else if (this.HiRegister !== undefined) {
-            return this.HiRegister.register.value << 8 | 0;
-        }
-        else {
-            throw new Error("ERROR: Both low and high registers are undefined");
-        }
+    public getRegisterValue(): number {
+        return this.value;
     }
 
     public setRegister(value: number) {

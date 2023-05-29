@@ -7,11 +7,11 @@ export class Register16Bit{
         this.registerName = name;
     }
 
-    public get value(){
+    protected get value(){
         return this._value;
     }
 
-    public set value(value: number){
+    protected set value(value: number){
         if(value > 65535){
             throw new Error("ERROR: cannot set register " + this.registerName + " value to " + value + ". Value must be less than 65535");
         }

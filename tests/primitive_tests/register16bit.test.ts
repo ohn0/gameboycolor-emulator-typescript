@@ -4,19 +4,6 @@ import { Register8bit } from '../../emulator/cpu/register';
 import { HiLoRegister } from '../../emulator/cpu/HiLoRegister';
 
 describe('register16bit testing', () => {
-    test('16 bit register throws when value set to numbers greater than 65535', () => {
-        let a = new Register16Bit("test");
-        expect(() => {
-            a.value = 70000;
-        }).toThrow();
-    });
-
-    test('16 bit register stores value if its less than 65536', () => {
-        let a = new Register16Bit("test");
-        a.value = 0xFFF;
-        expect(a.value).toBe(0xFFF);
-    });
-
     test('16 bit register gets name set when initialized', () => {
         let a = new Register16Bit("register");
         expect(a.registerName).toBe("register");
@@ -31,8 +18,8 @@ describe('HiLoRegister testing', () => {
         expect(aHiLo.LoRegister?.register.value).toBe(0xBB);
     });
 
-    test('getRegister returns Hi and Lo registers as a single 16bit value when both are defined', () => {
-        let value = aHiLo.getRegister();
+    test('getRegisterValue returns Hi and Lo registers as a single 16bit value when both are defined', () => {
+        let value = aHiLo.getRegisterValue();
         expect(value).toBe(0xAABB);
     });
 });

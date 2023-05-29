@@ -1,6 +1,6 @@
-import { mbcCreator } from './../../MemoryBankControllers/mbcCreator';
+import { mbcCreator } from './../../emulator/MemoryBankControllers/mbcCreator';
+import { MBC0 } from './../../emulator/MemoryBankControllers/MBC0';
 import { describe,expect, test } from "@jest/globals";
-import { MBC0 } from '../../MemoryBankControllers/MBC0';
 
 describe('MBC creator testing', () => {
     test('mbcCreator creates MBC0 when passed in MBC0 key', () => {
