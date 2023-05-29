@@ -50,7 +50,9 @@ export class CPU {
     populateOpcodes() {
         this.opCodesLibrary = {
             0x00: () => {},
-            0x01: (d16: number) => this.BC.setRegister(d16),
+            0x01: () => {
+                this.BC.setRegister(this.RAM[this.PC.getCounterValue()] << 8 | this.RAM[this.PC.getCounterValue()])
+            },
             0x02: () => this.RAM[this.BC.getRegisterValue()] = this.A.register.value,
             0x03: () => this.BC.setRegister(this.BC.getRegisterValue()+1),
             0x04: () => {
@@ -61,7 +63,7 @@ export class CPU {
                 this.B.register.value--;
                 this.updateFlags(this.B.register.value, "z1h-");
             },
-            0x06: (d8: number) => this.B.register.value = d8,
+            0x06: () => this.B.register.value = this.RAM[this.PC.getCounterValue()],
             0x07: () => {
                 let seventh_bit_value = 0x80 & this.A.register.value;
                 this.A.register.value <<= 1;
@@ -70,15 +72,18 @@ export class CPU {
                     ? this.A.register.value &= 0xFE : this.A.register.value |= 1;
                 this.updateFlags(this.A.register.value, "000c");
             },
-            0x08: (a16: number) => this.RAM[a16] = this.SP.getStackValue(),
+            0x08: () => this.RAM[this.PC.getCounterValue()] = this.SP.getStackValue(),
             0x09: () => {
                 this.HL.setRegister(this.HL.getRegisterValue() + this.BC.getRegisterValue());
                 this.updateFlags(this.HL.getRegisterValue(),"-0hc");
             },
             0x0A: () => this.A.register.value = this.RAM[this.BC.getRegisterValue()],
-            0x21: (d16: number) => this.HL.setRegister(d16),
-            0x31: (d16: number) => this.SP.setStackValue(d16),
-            0x3E: (d8: number) => this.A.register.value = d8,
+            0x0B: () => this.BC.setRegister(this.BC.getRegisterValue() - 1),
+            0x21: () => this.HL.setRegister(this.RAM[this.PC.getCounterValue()] << 8 | this.RAM[this.PC.getCounterValue()]),
+            0x31: () => {
+                this.SP.setStackValue(this.RAM[this.PC.getCounterValue()] << 8 | this.RAM[this.PC.getCounterValue()]);
+            },
+            0x3E: () => this.A.register.value = this.RAM[this.PC.getCounterValue()],
         }
     }
 
@@ -143,5 +148,12 @@ export class CPU {
         return this.SP;
     }
 
+    configureProgramCounter(value: number): void{
+        this.PC.setCounterValue(value);
+    }
+
+    configureRamValue(value: number, address: number): void{
+        this.RAM[address] = value;
+    }
 
 }
