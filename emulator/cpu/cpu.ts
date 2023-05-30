@@ -121,9 +121,18 @@ export class CPU {
                 //STOP instruction, single byte
                 //what's this do??
             },
-            0x11: () => {
-
+            0x11: () => this.DE.setRegister(this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC())),
+            0x12: () => this.RAM[this.DE.getRegisterValue()] = this.A.register.value,
+            0x13: () => this.DE.setRegister(this.DE.getRegisterValue() + 1),
+            0x14: () => {
+                this.D.register.value++;
+                this.updateFlags(this.D.register.value, "z0h-");
             },
+            0x15: () => {
+                this.D.register.value--;
+                this.updateFlags(this.D.register.value, "z0h-");
+            },
+            0x16: () => this.D.register.value = this.read8bitValueUsingPC(),
             0x21: () => this.HL.setRegister(this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC())),
             0x31: () => {
                 this.SP.setStackValue(this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC()));
