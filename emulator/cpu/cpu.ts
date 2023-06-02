@@ -2,7 +2,6 @@ import { Register8bit, FlagRegister } from './register';
 import { ProgramCounter } from "./ProgramCounter";
 import { StackPointer } from "./StackPointer";
 import { HiLoRegister } from "./HiLoRegister";
-import { Register16Bit } from './register16bit';
 
 export class CPU {
 
@@ -23,9 +22,15 @@ export class CPU {
     private SP: StackPointer;
     private PC: ProgramCounter;
 
+    private Z_flag: boolean;
+    private N_flag: boolean;
+    private H_flag: boolean;
+    private C_flag: boolean;
+
     private opCodesLibrary!: { [code: number]: () => void };
     private registersLibrary8bit!: { [key : string] : Register8bit}
-    private registersLibrary16bit!: { [key : string] : HiLoRegister}
+    private registersLibrary16bit!: { [key: string]: HiLoRegister }
+    private flagLibrary! : {[key : string] : boolean}
     constructor() {
         this.A = new Register8bit(0);
         this.B = new Register8bit(0);
@@ -44,24 +49,33 @@ export class CPU {
         this.SP = new StackPointer("Stack Pointer");
         this.PC = new ProgramCounter("Program Counter");
 
+        this.Z_flag = this.N_flag = this.H_flag = this.C_flag = false;
+
         this.RAM = new Uint8Array(0xFFFF);
         this.registersLibrary8bit = {
-            "A" : this.A,
-            "B" : this.B,
-            "C" : this.C,
-            "D" : this.D,
-            "E" : this.E,
-            "F" : this.F,
-            "H" : this.H,
+            "A": this.A,
+            "B": this.B,
+            "C": this.C,
+            "D": this.D,
+            "E": this.E,
+            "F": this.F,
+            "H": this.H,
             "L": this.L,
-        }
+        };
 
         this.registersLibrary16bit = {
             "AF": this.AF,
             "BC": this.BC,
             "DE": this.DE,
             "HL": this.HL,
-        }
+        };
+
+        this.flagLibrary = {
+            "Z": this.Z_flag,
+            "H": this.H_flag,
+            "N": this.N_flag,
+            "C": this.C_flag
+        };
 
         this.populateOpcodes();
     }
@@ -133,6 +147,29 @@ export class CPU {
                 this.updateFlags(this.D.register.value, "z0h-");
             },
             0x16: () => this.D.register.value = this.read8bitValueUsingPC(),
+            0x17: () => {
+                let seventh_bit_a = 0x80 & this.A.register.value;
+                let numeric_c_flag = this.C_flag == true ? 1 : 0;
+                this.A.register.value <<= 1;
+                this.A.register.value ^= numeric_c_flag; //XOR
+                this.C_flag = seventh_bit_a > 0 ? true : false;
+                this.updateFlags(this.A.register.value, "000c");
+            },
+            0x18: () => {
+                let jump_by_n_bits = this.read8bitValueUsingPC();
+                this.PC.setCounterValue(this.PC.getCounterNoincrement() + jump_by_n_bits);
+            },
+            0x19: () => {
+                //HL + DE
+                this.HL.setRegister(this.HL.getRegisterValue() + this.DE.getRegisterValue());
+                this.updateFlags(this.HL.getRegisterValue(),"-0hc");
+            },
+            0x1A: () => this.A.register.value = this.RAM[this.DE.getRegisterValue()],
+            0x1B: () => this.DE.setRegister(this.DE.getRegisterValue() - 1),
+            0x1C: () => {
+                this.E.register.value++;
+                this.updateFlags(this.E.register.value, "z0h-");
+            },
             0x21: () => this.HL.setRegister(this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC())),
             0x31: () => {
                 this.SP.setStackValue(this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC()));
@@ -170,6 +207,10 @@ export class CPU {
         this.PC.setCounterValue(value);
     }
 
+    readPC(): number{
+        return this.PC.getCounterNoincrement();
+    }
+
     configureRamValue(value: number, address: number): void{
         this.RAM[address] = value;
     }
@@ -182,6 +223,14 @@ export class CPU {
         this.RAM[this.PC.getCounterValue()] = value;
     }
 
-    build16bitValue(hi: number, lo: number): number {return hi << 8 | lo;}
+    build16bitValue(hi: number, lo: number): number { return hi << 8 | lo; }
+    
+    readFlag(flag_value: string): boolean{
+        return this.flagLibrary[flag_value];
+    }
+
+    setFlag(flag : string, flag_value: boolean): void {
+        this.flagLibrary[flag] = flag_value;
+    }
 
 }
