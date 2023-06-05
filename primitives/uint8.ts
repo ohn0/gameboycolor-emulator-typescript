@@ -19,6 +19,6 @@ export class Uint8{
     }
 
     public leftShiftWithCarry(shiftByN: number) {
-        
+        //?
     }
 }

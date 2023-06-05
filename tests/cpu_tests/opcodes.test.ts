@@ -1,14 +1,14 @@
 import { CPU } from '../../emulator/cpu/cpu';
 import { describe, expect, test } from "@jest/globals";
 
-let cpu: CPU = new CPU();
+const cpu: CPU = new CPU();
 
 describe('CPU opcode testing',() => {
     
     test('opcode 0x01 sets BC value to 0xABCD from immediate memory', () => {
         setRamValue16bit(0xABCD, 0x1111);
         cpu.executeOpcode(0x01);
-        expect(cpu.read16BitRegister("BC").getRegisterValue()).toBe(0xABCD);
+        expect(cpu.read16BitRegister("BC").getRegister()).toBe(0xABCD);
     })
 
     test('opcode 0x02 sets RAM at BC\'s location to A\'s value.', () => {
@@ -16,14 +16,14 @@ describe('CPU opcode testing',() => {
         cpu.executeOpcode(0x3E);
         cpu.executeOpcode(0x02);
 
-        expect(cpu.readMemory(cpu.read16BitRegister("BC").getRegisterValue())).toBe(0xC);
+        expect(cpu.readMemory(cpu.read16BitRegister("BC").getRegister())).toBe(0xC);
     })
 
     test('opcode 0x03 increments BC\'s value by 1', () => {
         setRamValue16bit(0xABCD, 0x1111);
         cpu.executeOpcode(0x01);
         cpu.executeOpcode(0x03);
-        expect(cpu.read16BitRegister("BC").getRegisterValue()).toBe(0xABCD + 1);
+        expect(cpu.read16BitRegister("BC").getRegister()).toBe(0xABCD + 1);
     })
 
     test('opcode 0x04 increments B\'s value by 1', () => {
@@ -73,7 +73,7 @@ describe('CPU opcode testing',() => {
         setRamValue16bit(0x1111, 0xBBBB);
         cpu.executeOpcode(0x21);
         cpu.executeOpcode(0x09);
-        expect(cpu.read16BitRegister("HL").getRegisterValue()).toBe(0xAC1D + 0x1111);
+        expect(cpu.read16BitRegister("HL").getRegister()).toBe(0xAC1D + 0x1111);
     })
 
     test('opcode 0x0A loads RAM[BC] into A', () => {
@@ -92,7 +92,7 @@ describe('CPU opcode testing',() => {
         setRamValue16bit(0xAC1D, 0x1111);
         cpu.executeOpcode(0x01);
         cpu.executeOpcode(0x0B);
-        expect(cpu.read16BitRegister("BC").getRegisterValue()).toBe(0xAC1C);
+        expect(cpu.read16BitRegister("BC").getRegister()).toBe(0xAC1C);
     });
 
     test('opcode 0x0C increments C by 1', () => {
@@ -130,7 +130,7 @@ describe('CPU opcode testing',() => {
     test('opcode 0x11 sets DE value to 0xABCD from immediate memory', () => {
         setRamValue16bit(0xABCD, 0x1111);
         cpu.executeOpcode(0x11);
-        expect(cpu.read16BitRegister("DE").getRegisterValue()).toBe(0xABCD);
+        expect(cpu.read16BitRegister("DE").getRegister()).toBe(0xABCD);
     });
 
     test('opcode 0x12 sets RAM at DE\'s location to A\'s value.', () => {
@@ -138,14 +138,14 @@ describe('CPU opcode testing',() => {
         cpu.executeOpcode(0x3E);
         cpu.executeOpcode(0x12);
 
-        expect(cpu.readMemory(cpu.read16BitRegister("DE").getRegisterValue())).toBe(0xC);
+        expect(cpu.readMemory(cpu.read16BitRegister("DE").getRegister())).toBe(0xC);
     });
 
     test('opcode 0x13 increments DE\'s value by 1', () => {
         setRamValue16bit(0xABCD, 0x1111);
         cpu.executeOpcode(0x01);
         cpu.executeOpcode(0x13);
-        expect(cpu.read16BitRegister("DE").getRegisterValue()).toBe(0xABCD + 1);
+        expect(cpu.read16BitRegister("DE").getRegister()).toBe(0xABCD + 1);
     });
 
     test('opcode 0x14 increments D\'s value by 1', () => {
@@ -212,7 +212,7 @@ describe('CPU opcode testing',() => {
         setRamValue16bit(0x1111, 0xBBBB);
         cpu.executeOpcode(0x21);
         cpu.executeOpcode(0x19);
-        expect(cpu.read16BitRegister("HL").getRegisterValue()).toBe(0xAC1D + 0x1111);
+        expect(cpu.read16BitRegister("HL").getRegister()).toBe(0xAC1D + 0x1111);
     });
 
     test('opcode 0x1A loads RAM[DE] into A', () => {
@@ -231,7 +231,7 @@ describe('CPU opcode testing',() => {
         setRamValue16bit(0xAC1D, 0x1111);
         cpu.executeOpcode(0x11);
         cpu.executeOpcode(0x1B);
-        expect(cpu.read16BitRegister("DE").getRegisterValue()).toBe(0xAC1C);
+        expect(cpu.read16BitRegister("DE").getRegister()).toBe(0xAC1C);
     });    
 
     test('opcode 0x1C increments E by 1', () => {
@@ -303,7 +303,7 @@ describe('CPU opcode testing',() => {
     test('opcode 0x21 loads into HL the input value', () => {
         setRamValue16bit(0xFEED, 0xBBBB);
         cpu.executeOpcode(0x21);
-        expect(cpu.read16BitRegister("HL").getRegisterValue()).toBe(0xFEED);
+        expect(cpu.read16BitRegister("HL").getRegister()).toBe(0xFEED);
     });
 
     test('opcode 0x22 loads into RAM[HL] A and then increments HL', () => {
@@ -314,14 +314,14 @@ describe('CPU opcode testing',() => {
         cpu.executeOpcode(0x22); //sets RAM[AAAA] to 0xD
 
         expect(cpu.readMemory(0xAAAA)).toBe(0xD);
-        expect(cpu.read16BitRegister("HL").getRegisterValue()).toBe(0xAAAB)
+        expect(cpu.read16BitRegister("HL").getRegister()).toBe(0xAAAB)
     });
 
     test('opcode 0x23 increments HL', () => {
         setRamValue16bit(0xBBBB, 0x1000);
         cpu.executeOpcode(0x21);
         cpu.executeOpcode(0x23);
-        expect(cpu.read16BitRegister("HL").getRegisterValue()).toBe(0xBBBC);
+        expect(cpu.read16BitRegister("HL").getRegister()).toBe(0xBBBC);
     });
     
     test('opcode 0x24 increments H', () => {
@@ -329,7 +329,7 @@ describe('CPU opcode testing',() => {
         cpu.executeOpcode(0x21);
         cpu.executeOpcode(0x24);
         expect(cpu.read8BitRegister("H").value).toBe(0xBC);
-        expect(cpu.read16BitRegister("HL").HiRegister.value).toBe(0xBC);
+        expect(cpu.read16BitRegister("HL").HiRegister).toBe(0xBC);
     });
     
     test('opcode 0x25 decrements H', () => {
@@ -337,13 +337,45 @@ describe('CPU opcode testing',() => {
         cpu.executeOpcode(0x21);
         cpu.executeOpcode(0x25);
         expect(cpu.read8BitRegister("H").value).toBe(0xBA);
-        expect(cpu.read16BitRegister("HL").HiRegister.value).toBe(0xBA);
+        expect(cpu.read16BitRegister("HL").HiRegister).toBe(0xBA);
     });
 
     test('opcode 0x26 sets H to immediate 8 bit value', () => {
         setRamValue(0xAF, 0x2341);
         cpu.executeOpcode(0x26);
         expect(cpu.read8BitRegister("H").value).toBe(0xAF);
+    });
+
+    test('opcode 0x27 performs DAA on A value 0x1B', () => {
+        cpu.setFlag("C", false);
+        setRamValue(0x3C, 0x1111);
+        cpu.executeOpcode(0x3E);
+        cpu.executeOpcode(0x27);
+        expect(cpu.read8BitRegister("A").value).toBe(66);
+    });
+
+    test('opcode 0x28 jumps to PC+ given 8 bit value if Zero flag is set.', () => { 
+        cpu.setFlag("Z", true);
+        cpu.configureProgramCounter(0x4000);
+        setRamValue(0xAA, 0x4000);
+        cpu.executeOpcode(0x28);
+        expect(cpu.readPC()).toBe(0x4000 + 0xAA + 0x01);
+    });
+
+    test('opcode 0x29 adds HL to HL', () => {
+        setRamValue(0x12, 0xAFDA);
+        cpu.executeOpcode(0x26);
+        setRamValue(0x33, 0xAFAA);
+        cpu.executeOpcode(0x2E);
+
+        cpu.executeOpcode(0x29);
+        expect(cpu.read16BitRegister("HL").getRegister()).toBe(0x1233 + 0x1233);
+    });
+
+    test('opcode 0x2E sets L to immediate 8 bit value.', () => {
+        setRamValue(0xAA, 0x4000);
+        cpu.executeOpcode(0x2E);
+        expect(cpu.read8BitRegister("L").value).toBe(0xAA);
     })
 
     test('opcode 0x31 sets SP\'s value to the specified input.', () => {
@@ -361,6 +393,15 @@ describe('CPU opcode testing',() => {
         cpu.executeOpcode(0x3E);
         expect(cpu.read8BitRegister("A").value).toBe(0xFD);
     });
+
+    test('opcode 0x2F flips A and sets N and H', () => {
+        setRamValue(0xD, 0x1111);
+        cpu.executeOpcode(0x3E);
+        cpu.executeOpcode(0x2F);
+        expect(cpu.read8BitRegister("A").value).toBe(~0xD);
+        expect(cpu.readFlag("N")).toBeTruthy()
+        expect(cpu.readFlag("H")).toBeTruthy()
+    })
     
 });
 

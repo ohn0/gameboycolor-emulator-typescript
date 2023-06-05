@@ -9,5 +9,13 @@ export class StackPointer extends Register16Bit {
         this.value = value;
     }
 
-    public getStackValue():number {return this.value;}
+    public getStackValue(): number { return this.value; }
+    
+    public override setRegister(value: number) {
+        this.setStackValue(value);
+    }
+
+    public getRegister(): number {
+        return this.getStackValue();
+    }
 }

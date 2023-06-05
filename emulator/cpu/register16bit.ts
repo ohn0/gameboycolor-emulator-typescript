@@ -27,4 +27,12 @@ export class Register16Bit{
     public set registerName(value) {
         this._registerName = value;
     }
+
+    public setRegister(value: number) {
+        this.value = value;
+    }
+
+    public getRegister(): number{
+        return this.value;
+    }
 }

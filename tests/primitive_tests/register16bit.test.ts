@@ -14,12 +14,12 @@ describe('HiLoRegister testing', () => {
     let aHiLo = new HiLoRegister(new Register8bit(0xAA), new Register8bit(0xBB), "AB Register");
 
     test('Hi and Lo registers are configured on initialization', () => {
-        expect(aHiLo.HiRegister?.value).toBe(0xAA);
-        expect(aHiLo.LoRegister?.value).toBe(0xBB);
+        expect(aHiLo.HiRegister).toBe(0xAA);
+        expect(aHiLo.LoRegister).toBe(0xBB);
     });
 
-    test('getRegisterValue returns Hi and Lo registers as a single 16bit value when both are defined', () => {
-        let value = aHiLo.getRegisterValue();
+    test('getRegister returns Hi and Lo registers as a single 16bit value when both are defined', () => {
+        let value = aHiLo.getRegister();
         expect(value).toBe(0xAABB);
     });
 });
