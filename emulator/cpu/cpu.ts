@@ -203,9 +203,9 @@ export class CPU {
             0x2C: () => this.increment(this.L),
             0x3C: () => this.increment(this.A),
 
-            0x0D: () => this.decrement(this.C), 
-            0x1D: () => this.decrement(this.E), 
-            0x2D: () => this.decrement(this.L), 
+            0x0D: () => this.decrement(this.C),
+            0x1D: () => this.decrement(this.E),
+            0x2D: () => this.decrement(this.L),
             0x3D: () => this.decrement(this.A),
             
             0x0E: () => this.loadRegisterImmediate(this.C),
@@ -213,7 +213,7 @@ export class CPU {
             0x2E: () => this.loadRegisterImmediate(this.L),
             0x3E: () => this.loadRegisterImmediate(this.A),
 
-            0x0F: () => { 
+            0x0F: () => {
                 const first_bit_value = this.A.value & 1;
                 this.A.value >>= 1;
                 this.A.value &= 0xFF;
@@ -317,10 +317,100 @@ export class CPU {
             0x6E: () => this.loadRegisterMemory(this.L),
             0x7E: () => this.loadAccumulator(this.HL.getRegister()),
 
-            0x4F: () => this.loadRegisterRegister(this.A,this.C),
-            0x5F: () => this.loadRegisterRegister(this.A,this.E),
-            0x6F: () => this.loadRegisterRegister(this.A,this.L),
+            0x4F: () => this.loadRegisterRegister(this.A, this.C),
+            0x5F: () => this.loadRegisterRegister(this.A, this.E),
+            0x6F: () => this.loadRegisterRegister(this.A, this.L),
             0x7F: () => this.loadAccumulator(this.A.value),
+
+            0x80: () => this.add(this.B),
+            0x90: () => this.subtract(this.B),
+            0xA0: () => this.and(this.B.value),
+            0xB0: () => this.or(this.B.value),
+
+            0x81: () => this.add(this.C),
+            0x91: () => this.subtract(this.C),
+            0xA1: () => this.and(this.C.value),
+            0xB1: () => this.or(this.C.value),
+
+            0x82: () => this.add(this.D),
+            0x92: () => this.subtract(this.D),
+            0xA2: () => this.and(this.D.value),
+            0xB2: () => this.or(this.D.value),
+
+            0x83: () => this.add(this.E),
+            0x93: () => this.subtract(this.E),
+            0xA3: () => this.and(this.E.value),
+            0xB3: () => this.or(this.E.value),
+            
+            0x84: () => this.add(this.H),
+            0x94: () => this.subtract(this.H),
+            0xA4: () => this.and(this.H.value),
+            0xB4: () => this.or(this.H.value),
+
+            0x85: () => this.add(this.L),
+            0x95: () => this.subtract(this.L),
+            0xA5: () => this.and(this.L.value),
+            0xB5: () => this.or(this.L.value),
+            
+            0x86: () => this.addFromMemory(),
+            0x96: () => this.subtractFromMemory(),
+            0xA6: () => this.and(this.HL.getRegister()),
+            0xB6: () => this.or(this.HL.getRegister()),
+
+            0x87: () => this.add(this.A),
+            0x97: () => this.subtract(this.A),
+            0xA7: () => this.and(this.A.value),
+            0xB7: () => this.or(this.A.value),
+
+            0x88: () => this.addCarry(this.B),
+            0x98: () => this.subtractCarry(this.B),
+            0xA8: () => this.xor(this.B.value),
+            0xB8: () => this.cmp(this.B.value),
+            
+            0x89: () => this.addCarry(this.C),
+            0x99: () => this.subtractCarry(this.C),
+            0xA9: () => this.xor(this.C.value),
+            0xB9: () => this.cmp(this.C.value),
+            
+            0x8A: () => this.addCarry(this.D),
+            0x9A: () => this.subtractCarry(this.D),
+            0xAA: () => this.xor(this.D.value),
+            0xBA: () => this.cmp(this.D.value),
+
+            0x8B: () => this.addCarry(this.E),
+            0x9B: () => this.subtractCarry(this.E),
+            0xAB: () => this.xor(this.E.value),
+            0xBB: () => this.cmp(this.E.value),
+            
+            0x8C: () => this.addCarry(this.H),
+            0x9C: () => this.subtractCarry(this.H),
+            0xAC: () => this.xor(this.H.value),
+            0xBC: () => this.cmp(this.H.value),
+            
+            0x8D: () => this.addCarry(this.L),
+            0x9D: () => this.subtractCarry(this.L),
+            0xAD: () => this.xor(this.L.value),
+            0xBD: () => this.cmp(this.L.value),
+            
+            0x8E: () => this.addCarry(this.C),
+            0x9E: () => this.subtractCarry(this.C),
+            0xAE: () => this.xor(this.C.value),
+            0xBE: () => this.cmp(this.C.value),
+            
+            0x8F: () => this.addFromMemory(true),
+            0x9F: () => {
+                this.subtractFromMemory(true);
+                this.updateFlags(undefined, true, undefined, undefined);
+            },
+            0xAF: () => {
+                this.xor(this.A.value);
+                this.updateFlags(true, false, false, false);
+            },
+            0xBF: () => {
+                this.cmp(this.A.value);
+                this.updateFlags(false, false, true, true);
+            },
+            
         }
     }
 
@@ -434,23 +524,27 @@ export class CPU {
     }
 
     private increment(register: Register8bit) {
+        const initialValue = register.value;
         register.value++;
-        this.updateFlags(register.value == 0, false, );
+        this.updateFlags(register.value == 0, false, (initialValue & 0x08) > 0, undefined);
     }
 
-    private incrementMemory(memoryLocation : number) {
+    private incrementMemory(memoryLocation: number) {
+        const initialValue = this.RAM[memoryLocation];
         this.RAM[memoryLocation]++;
-        this.updateFlags_16(this.HL, "z0h-"); //i'm guessing HL is the flag being looked at 
+        this.updateFlags(this.RAM[memoryLocation] == 0, false, (initialValue & 0x08) > 0, undefined);
     }
     
     private decrement(register: Register8bit) {
+        const initialValue = register.value;
         register.value--;
-        this.updateFlags(register, "z0h-");
+        this.updateFlags(register.value == 0, true, (initialValue & 0x08) > 0, undefined);
     }
 
-    private decrementMemory(memoryLocation : number) {
+    private decrementMemory(memoryLocation: number) {
+        const initialValue = this.RAM[memoryLocation];
         this.RAM[memoryLocation]--;
-        this.updateFlags_16(this.HL, "z1h-"); //i'm guessing HL is the flag being looked at 
+        this.updateFlags(this.RAM[memoryLocation] == 0, true, (initialValue & 0x08) > 0, undefined);
     }
 
     private increment_16(register: HiLoRegister | StackPointer) {
@@ -467,31 +561,78 @@ export class CPU {
     }
 
     private add(register: Register8bit) {
-        const carryState = this.getAddCarryStatus(register);
+        const carryState = this.getAddCarryStatus(register.value);
         this.A.value += register.value;
-        this.updateFlags(this.A.value == 0, false, carryState.lsb, carryState.msb);
+        this.updateFlags(this.A.value == 0, false, ...carryState);
+    }
+
+    private addFromMemory(isCarry = false) {
+        const carryFlagValue = isCarry ? this.flags["C"] ? 1 : 0 : 0;
+        const carryState = this.getAddCarryStatus(this.HL.getRegister() + carryFlagValue);
+        this.A.value += (carryFlagValue + this.HL.getRegister())
+        this.updateFlags(this.A.value == 0, false, ...carryState)
     }
 
     private addCarry(register: Register8bit) {
         const result = this.A.value + register.value + (this.flags["C"] ? 1 : 0);
-        const carryState = this.getAddCarryStatus(register);
+        const carryState = this.getAddCarryStatus(register.value, true);
         this.A.value = result;
-        this.updateFlags(this.A.value == 0, false, carryState.lsb, carryState.msb);
+        this.updateFlags(this.A.value == 0, false, ...carryState);
     }
 
     private subtract(register: Register8bit) {
+        const carryResult = this.getSubCarryStatus(register.value);
         this.A.value -= register.value;
+        this.updateFlags(this.A.value == 0, true, ...carryResult)
     }
 
-    private getAddCarryStatus(register: Register8bit): {msb: boolean, lsb:boolean} {
-        const msb_carry = this.A.value >= 0x80 && register.value >= 0x80;
-        const lsb_carry = ((this.A.value & 0xF) >= 0x8) && ((register.value & 0xF) > 0x8);
-        return { msb: msb_carry, lsb: lsb_carry };
+    private subtractCarry(register: Register8bit) {
+        const result = this.A.value - (this.flags["C"] ? 1 : 0) - register.value;
+        const carryState = this.getSubCarryStatus(register.value, true);
+        this.A.value = result;
+        this.updateFlags(this.A.value == 0, true, ...carryState);
     }
 
-    private getSubCarryStatus(register: Register8bit): { msb: boolean, lsb: boolean }{
-        
-        return { msb: false, lsb: false };
+    private subtractFromMemory(isCarry = false) {
+        const carryFlagValue = isCarry ? this.flags["C"] ? 1 : 0 : 0;
+        const carryState = this.getSubCarryStatus(this.HL.getRegister() - carryFlagValue);
+        this.A.value -= (this.HL.getRegister() - carryFlagValue)
+        this.updateFlags(this.A.value == 0, true, ...carryState);
+    }
+
+    private getAddCarryStatus(value: number, isCarryOpcode = false): [boolean, boolean] {
+        const isCarry = (isCarryOpcode ? 1 : 0);
+        const msb_carry = this.A.value + value + isCarry > 0xFF;
+        const lsb_carry = 0x10 == (0x10 & (((this.A.value + isCarry) & 0xF) + (value & 0xF)));
+        return [msb_carry, lsb_carry]
+    }
+
+    private getSubCarryStatus(value : number, isCarryOpcode = false): [boolean, boolean | undefined] {
+        const isCarry = (isCarryOpcode ? 1 : 0);
+        const msb_carry = this.A.value - value - isCarry < 0;
+        const lsb_carry = 0x10 == (0x10 & (((this.A.value - isCarry) & 0xF) + (value & 0xF)));
+        return [msb_carry, lsb_carry];
+    }
+
+    private and(value: number) {
+        this.A.value &= value;
+        this.updateFlags(this.A.value == 0, false, true, false);
+    }
+
+    private or(value: number) {
+        this.A.value |= value;
+        this.updateFlags(this.A.value == 0, false, false, false);
+    }
+
+    private xor(value: number) {
+        this.A.value ^= value;
+        this.updateFlags(this.A.value == 0, false, false, false);
+    }
+
+    private cmp(value: number) {
+        const carryResult = this.getSubCarryStatus(value);
+        this.A.value -= value;
+        this.updateFlags(this.A.value == 0, true, ...carryResult)
     }
 
 }
