@@ -329,7 +329,7 @@ describe('CPU opcode testing',() => {
         cpu.executeOpcode(0x21);
         cpu.executeOpcode(0x24);
         expect(cpu.read8BitRegister("H").value).toBe(0xBC);
-        expect(cpu.read16BitRegister("HL").HiRegister).toBe(0xBC);
+        expect(cpu.read16BitRegister("HL").getRegister() >> 8).toBe(0xBC);
     });
     
     test('opcode 0x25 decrements H', () => {
@@ -337,7 +337,7 @@ describe('CPU opcode testing',() => {
         cpu.executeOpcode(0x21);
         cpu.executeOpcode(0x25);
         expect(cpu.read8BitRegister("H").value).toBe(0xBA);
-        expect(cpu.read16BitRegister("HL").HiRegister).toBe(0xBA);
+        expect(cpu.read16BitRegister("HL").getRegister() >> 8).toBe(0xBA);
     });
 
     test('opcode 0x26 sets H to immediate 8 bit value', () => {

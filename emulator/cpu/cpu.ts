@@ -26,7 +26,7 @@ export class CPU {
 
     private opCodesLibrary!: { [code: number]: () => void };
     private registersLibrary8bit!: { [key : string] : Register8bit}
-    private registersLibrary16bit!: { [key: string]: HiLoRegister }
+    private registersLibrary16bit!: { [key: string]: HiLoRegister | StackPointer }
     private flags!: { [key: string]: boolean }
     private IME: boolean;
 
@@ -65,6 +65,7 @@ export class CPU {
             "BC": this.BC,
             "DE": this.DE,
             "HL": this.HL,
+            "SP": this.SP
         };
 
         this.flags = {
@@ -169,7 +170,7 @@ export class CPU {
                 this.updateFlags(this.A.value == 0, undefined, false, carryCheck);
             },
             0x37: () => {
-                this.updateFlags_NoAffectedRegister("-001");
+                this.updateFlags(undefined, false, false, true);
             },
 
             0x08: () => this.set8bitValueUsingPC(this.SP.getStackValue()),
@@ -410,24 +411,55 @@ export class CPU {
                 this.cmp(this.A.value);
                 this.updateFlags(false, false, true, true);
             },
-            
+
+            0xC0: () => {
+                if (this.flags["Z"] == false) {
+                    this.PC.setCounterValue(this.read16BitRegister("SP").getRegister() + this.read16BitRegister("SP").getRegister());
+                }
+            },
+
+            0xD0: () => {
+                if (this.flags["C"] == false) {
+                    this.PC.setCounterValue(this.read16BitRegister("SP").getRegister() + this.read16BitRegister("SP").getRegister());
+                }
+            },
+
+            0xE0: () => {
+                const value = this.read8bitValueUsingPC();
+                this.RAM[0xFF + value] = this.A.value;
+            },
+
+            0xF0: () => {
+                const value = this.read8bitValueUsingPC();
+                this.A.value = this.RAM[0xFF + value];
+            },
+
+            0xC1: () => {
+                this.load16BitUnsignedValue(this.BC);
+            },
+
+            0xD1: () => {
+                this.load16BitUnsignedValue(this.DE);
+            },
+
+            0xE1: () => {
+                this.load16BitUnsignedValue(this.HL);
+            },
+
+            0xF1: () => {
+                this.load16BitUnsignedValue(this.AF);
+                const flag = this.AF.LoRegister;
+                this.updateFlags((flag & 0x80) > 0, (flag & 0x40) > 0, (flag & 0x20) > 0, (flag & 0x10) > 0);
+            },
         }
     }
 
     
-    updateFlags_NoAffectedRegister(flagState: string) {
-        //todo
-    }
-
     updateFlags(zState : boolean | undefined, nState: boolean | undefined, hState: boolean | undefined, cState: boolean | undefined) {
         this.flags["Z"] = zState != undefined ? zState : this.flags["Z"];
         this.flags["N"] = nState != undefined ? nState : this.flags["N"];
         this.flags["H"] = hState != undefined ? hState : this.flags["H"];
         this.flags["C"] = cState != undefined ? cState : this.flags["C"];
-    }
-
-    updateFlags_16(register: Register16Bit, flagState: string) {
-        //todo
     }
 
     executeOpcode(code: number) {
@@ -446,7 +478,7 @@ export class CPU {
         return this.registersLibrary8bit[registerKey];
     }
 
-    read16BitRegister(registerKey: string): HiLoRegister {
+    read16BitRegister(registerKey: string): HiLoRegister | StackPointer {
         return this.registersLibrary16bit[registerKey];
     }
 
@@ -556,8 +588,9 @@ export class CPU {
     }
 
     private add_HL(register: HiLoRegister | StackPointer) {
+        const result = this.HL.getRegister() + this.HL.getRegister();
         this.HL.setRegister(this.HL.getRegister() + register.getRegister());
-        this.updateFlags_16(this.HL, "-0hc");
+        this.updateFlags(undefined,false,undefined, result > 0xFFFF )
     }
 
     private add(register: Register8bit) {
@@ -635,4 +668,8 @@ export class CPU {
         this.updateFlags(this.A.value == 0, true, ...carryResult)
     }
 
+    private load16BitUnsignedValue(register: HiLoRegister) {
+        register.HiRegister = this.readSP().getRegister();
+        register.LoRegister = this.readSP().getRegister();
+    }
 }
