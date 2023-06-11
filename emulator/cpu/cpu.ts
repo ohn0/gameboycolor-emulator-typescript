@@ -3,7 +3,7 @@ import { FlagRegister } from "./FlagRegister";
 import { ProgramCounter } from "./ProgramCounter";
 import { StackPointer } from "./StackPointer";
 import { HiLoRegister } from "./HiLoRegister";
-import { Register16Bit } from './register16bit';
+import { Uint8 } from '../../primitives/uint8';
 
 export class CPU {
 
@@ -29,6 +29,7 @@ export class CPU {
     private registersLibrary16bit!: { [key: string]: HiLoRegister | StackPointer }
     private flags!: { [key: string]: boolean }
     private IME: boolean;
+    private IME_scheduled: boolean;
 
     constructor() {
         this.A = new Register8bit(0);
@@ -44,9 +45,10 @@ export class CPU {
         this.DE = new HiLoRegister(this.D, this.E, "DE");
         this.HL = new HiLoRegister(this.H, this.L, "HL");
         
-        this.SP = new StackPointer("Stack Pointer");
+        this.SP = new StackPointer(0x00,0x00, "Stack Pointer");
         this.PC = new ProgramCounter("Program Counter");
         this.IME = false;
+        this.IME_scheduled = false;
         
         this.RAM = new Uint8Array(0xFFFF);
         this.registersLibrary8bit = {
@@ -173,7 +175,7 @@ export class CPU {
                 this.updateFlags(undefined, false, false, true);
             },
 
-            0x08: () => this.set8bitValueUsingPC(this.SP.getStackValue()),
+            0x08: () => this.writeUnsigned16BitFromSPToMemory(),
             0x18: () => this.jump(),
             0x28: () => this.conditionalJump(this.flags["Z"] == true),
             0x38: () => this.conditionalJump(this.flags["C"] == true),
@@ -414,13 +416,13 @@ export class CPU {
 
             0xC0: () => {
                 if (this.flags["Z"] == false) {
-                    this.PC.setCounterValue(this.read16BitRegister("SP").getRegister() + this.read16BitRegister("SP").getRegister());
+                    this.PC.setCounterValue(this.read16BitRegister("SP").getRegister());
                 }
             },
 
             0xD0: () => {
                 if (this.flags["C"] == false) {
-                    this.PC.setCounterValue(this.read16BitRegister("SP").getRegister() + this.read16BitRegister("SP").getRegister());
+                    this.PC.setCounterValue(this.read16BitRegister("SP").getRegister());
                 }
             },
 
@@ -435,27 +437,167 @@ export class CPU {
             },
 
             0xC1: () => {
-                this.load16BitUnsignedValue(this.BC);
+                this.pop(this.BC);
             },
 
             0xD1: () => {
-                this.load16BitUnsignedValue(this.DE);
+                this.pop(this.DE);
             },
 
             0xE1: () => {
-                this.load16BitUnsignedValue(this.HL);
+                this.pop(this.HL);
             },
 
             0xF1: () => {
-                this.load16BitUnsignedValue(this.AF);
+                this.pop(this.AF);
                 const flag = this.AF.LoRegister;
                 this.updateFlags((flag & 0x80) > 0, (flag & 0x40) > 0, (flag & 0x20) > 0, (flag & 0x10) > 0);
             },
+
+            0xC2: () => {
+                this.conditional16BitJump(this.flags["Z"] != false);
+            },
+            
+            0xD2: () => {
+                this.conditional16BitJump(this.flags["C"] != false);
+            },
+
+            0xE2: () => {
+                this.loadMemoryRegister(this.RAM[this.C.value], this.A);
+            },
+
+            0xF2: () => {
+                this.loadAccumulator(this.RAM[this.C.value]);
+            },
+
+            0xC3: () => {
+                this.PC.setCounterValue(
+                    this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC()));
+            },
+            
+            0xD3: () => {throw new Error("INVALID OPCODE 0xD3");},
+            0xE3: () => { throw new Error("INVALID OPCODE 0xE3"); },
+            0xF3: () => { this.IME = false; },
+
+            0xC4: () => {
+                this.conditionalCall(!this.flags["Z"], this.PC);
+            },
+            0xD4: () => {
+                this.conditionalCall(!this.flags["C"], this.PC);
+            },
+            0xE4: () => {throw new Error("INVALID OPCODE 0xE4");},
+            0xF4: () => { throw new Error("INVALID OPCODE 0xF4"); },
+            
+            0xC5: () => { this.push(this.BC); },
+            0xD5: () => { this.push(this.DE); },
+            0xE5: () => { this.push(this.HL); },
+            0xF5: () => { this.push(this.AF); },
+
+            0xC6: () => { this.addImmediate(); },
+            0xD6: () => { this.subtractImmediate(); },
+            0xE6: () => { this.and(this.read8bitValueUsingPC()); },
+            0xF6: () => { this.or(this.read8bitValueUsingPC()); },
+
+            0xC7: () => { this.rst(0x00); },
+            0xD7: () => { this.rst(0x10); },
+            0xE7: () => { this.rst(0x20); },
+            0xF7: () => { this.rst(0x30); },
+
+            0xC8: () => { this.conditionalRet(this.flags["Z"]); },
+            0xD8: () => { this.conditionalRet(this.flags["C"]); },
+            
+            0xE8: () => {
+                const spAddition = new Uint8(this.read8bitValueUsingPC())
+                    .getSignedRepresentation();
+                const h_flag_state = this.SP.getRegister() + spAddition > 0xFF;
+                const c_flag_state   = 0x10 == (0x10 & (((this.SP.getRegister() ) & 0xF) + (spAddition & 0xF)));
+            
+                this.SP.setRegister(this.SP.getRegister() + spAddition);
+                this.updateFlags(false, false, h_flag_state, c_flag_state);
+            },
+
+            0xF8: () => {
+                const spImmediateLoad = this.SP.getRegister() + this.read8bitValueUsingPC(); 
+                const h_flag_state = this.HL.getRegister() + spImmediateLoad > 0xFF;
+                const c_flag_state   = 0x10 == (0x10 & (((this.HL.getRegister() ) & 0xF) + (spImmediateLoad & 0xF)));
+                this.updateFlags(false, false, h_flag_state, c_flag_state);
+            },
+
+            0xC9: () => {
+                this.conditionalRet(true);
+            },
+
+            0xD9: () => {
+                this.conditionalRet(true);
+                this.IME = true;
+            },
+
+            0xE9: () => {
+                this.PC.setRegister(this.HL.getRegister());
+            },
+
+            0xF9: () => {
+                this.SP.setRegister(this.HL.getRegister());
+            },
+
+            0xCA: () => {
+                this.conditional16BitJump(this.flags["Z"]);
+            },
+
+            0xDA: () => {
+                this.conditional16BitJump(this.flags["C"]);
+            },
+
+            0xEA: () => {
+                this.RAM[this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC())]
+                    = this.A.value;
+            },
+            0xFA: () => {
+                this.A.value =
+                    this.RAM[this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC())];
+            },
+            0xCB: () => {
+                //bitwise op
+            },
+
+            0xDB: () => {throw new Error("INVALID OPCODE 0xDB");},
+            0xEB: () => { throw new Error("INVALID OPCODE 0xEB"); },
+
+            0xFB: () => {
+                this.IME_scheduled = true;
+            },
+
+            0xCC: () => {
+                this.conditionalCall(this.flags["Z"], this.PC);
+            },
+
+            0xDC: () => {
+                this.conditionalCall(this.flags["C"], this.PC);
+            },
+
+            0xEC: () => {throw new Error("INVALID OPCODE 0xEC");},
+            0xFC: () => { throw new Error("INVALID OPCODE 0xFC"); },
+
+            0xCD: () => { this.conditionalCall(true, this.PC); },
+
+            0xDD: () => {throw new Error("INVALID OPCODE 0xDD");},
+            0xED: () => {throw new Error("INVALID OPCODE 0xED");},
+            0xFD: () => { throw new Error("INVALID OPCODE 0xFD"); },
+
+            0xCE: () => { this.addCarry(new Register8bit(this.read8bitValueUsingPC())); },
+            0xDE: () => { this.subtractCarry(new Register8bit(this.read8bitValueUsingPC())); },
+            0xEE: () => { this.xor(this.read8bitValueUsingPC()); },
+            0xFE: () => { this.cmp(this.read8bitValueUsingPC()); },
+
+            0xCF: () => { this.rst(0x08); },
+            0xDF: () => { this.rst(0x18); },
+            0xEF: () => { this.rst(0x28); },
+            0xFF: () => { this.rst(0x38); }
         }
     }
 
     
-    updateFlags(zState : boolean | undefined, nState: boolean | undefined, hState: boolean | undefined, cState: boolean | undefined) {
+    private updateFlags(zState : boolean | undefined, nState: boolean | undefined, hState: boolean | undefined, cState: boolean | undefined) {
         this.flags["Z"] = zState != undefined ? zState : this.flags["Z"];
         this.flags["N"] = nState != undefined ? nState : this.flags["N"];
         this.flags["H"] = hState != undefined ? hState : this.flags["H"];
@@ -468,10 +610,6 @@ export class CPU {
 
     readMemory(address: number): number {
         return this.RAM[address];
-    }
-
-    readSP(): StackPointer {
-        return this.SP;
     }
 
     read8BitRegister(registerKey: string): Register8bit {
@@ -502,7 +640,13 @@ export class CPU {
         this.RAM[this.PC.getCounterValue()] = value;
     }
 
-    build16bitValue(hi: number, lo: number): number { return hi << 8 | lo; }
+    private popStack(): number {
+        const currentStackPointer = this.SP.getRegister();
+        this.SP.setRegister(currentStackPointer + 1);
+        return this.RAM[currentStackPointer];
+    }
+
+    build16bitValue(lsb: number, msb: number): number { return msb << 8 | lsb; }
     
     readFlag(flag_value: string): boolean{
         return this.flags[flag_value];
@@ -544,15 +688,24 @@ export class CPU {
     }
 
     private conditionalJump(conditionalResult: boolean) {
-        const jump_address = this.read8bitValueUsingPC();
+        const jump_address = this.read8bitValueUsingPC(); // NEED TO READ PC REGARDLESS OF CONDITION RESULT
         if (conditionalResult) {
-            this.PC.setCounterValue(this.PC.getCounterNoincrement() + jump_address);
+            this.PC.setCounterValue(this.PC.getCounterNoincrement()
+                + new Uint8(jump_address).getSignedRepresentation());
+        }
+    }
+
+    private conditional16BitJump(conditionalResult: boolean) {
+        const address = this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC()); // NEED TO READ PC REGARDLESS OF CONDITION RESULT
+        if (conditionalResult) {
+            this.PC.setCounterValue(address);
         }
     }
 
     private jump() {
         const jump_by_n_bits = this.read8bitValueUsingPC();
-        this.PC.setCounterValue(this.PC.getCounterNoincrement() + jump_by_n_bits);
+        this.PC.setCounterValue(this.PC.getCounterNoincrement() + 
+            new Uint8(jump_by_n_bits).getSignedRepresentation());
     }
 
     private increment(register: Register8bit) {
@@ -613,6 +766,13 @@ export class CPU {
         this.updateFlags(this.A.value == 0, false, ...carryState);
     }
 
+    private addImmediate() {
+        const immediateValue = this.read8bitValueUsingPC();
+        const carryState = this.getAddCarryStatus(immediateValue);
+        this.A.value += immediateValue;
+        this.updateFlags(this.A.value == 0, false, ...carryState);
+    }
+
     private subtract(register: Register8bit) {
         const carryResult = this.getSubCarryStatus(register.value);
         this.A.value -= register.value;
@@ -633,6 +793,13 @@ export class CPU {
         this.updateFlags(this.A.value == 0, true, ...carryState);
     }
 
+    private subtractImmediate() {
+        const immediateValue = this.read8bitValueUsingPC();
+        const carryState = this.getSubCarryStatus(immediateValue);
+        this.A.value -= immediateValue;
+        this.updateFlags(this.A.value == 0, true, ...carryState);
+    }
+    
     private getAddCarryStatus(value: number, isCarryOpcode = false): [boolean, boolean] {
         const isCarry = (isCarryOpcode ? 1 : 0);
         const msb_carry = this.A.value + value + isCarry > 0xFF;
@@ -668,8 +835,41 @@ export class CPU {
         this.updateFlags(this.A.value == 0, true, ...carryResult)
     }
 
-    private load16BitUnsignedValue(register: HiLoRegister) {
-        register.HiRegister = this.readSP().getRegister();
-        register.LoRegister = this.readSP().getRegister();
+    private writeUnsigned16BitFromSPToMemory() {
+        const address = this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC());
+        this.RAM[address] = this.SP.LoRegister;
+        this.RAM[address + 1] = this.SP.HiRegister;
+    }
+
+    private conditionalCall(conditionalResult: boolean, register: HiLoRegister) {
+        const address = this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC());
+        if (conditionalResult) {
+            this.push(register);
+            this.PC.setRegister(address);
+        }
+    }
+
+    private push(register: HiLoRegister) {
+        this.SP.setRegister(this.SP.getRegister() - 2);
+        this.RAM[this.SP.getRegister()] = register.LoRegister;
+        this.RAM[this.SP.getRegister() + 1] = register.HiRegister;
+    }
+
+    private pop(register: HiLoRegister) {
+        register.setRegister(this.build16bitValue(this.popStack(), this.popStack()))
+    }
+
+    private rst(address: number) {
+        this.SP.setRegister(this.SP.getRegister() - 2);
+        this.RAM[this.SP.getRegister()] = this.PC.HiRegister;
+        this.RAM[this.SP.getRegister() + 1] = this.PC.LoRegister;
+
+        this.PC.setRegister(address);
+    }
+
+    private conditionalRet(condition: boolean) {
+        if (condition) {
+            this.PC.setRegister(this.build16bitValue(this.popStack(), this.popStack()));
+        }
     }
 }

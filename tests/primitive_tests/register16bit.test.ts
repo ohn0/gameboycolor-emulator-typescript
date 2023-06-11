@@ -5,13 +5,13 @@ import { HiLoRegister } from '../../emulator/cpu/HiLoRegister';
 
 describe('register16bit testing', () => {
     test('16 bit register gets name set when initialized', () => {
-        let a = new Register16Bit("register");
+        const a = new Register16Bit("register");
         expect(a.registerName).toBe("register");
     });
 });
 
 describe('HiLoRegister testing', () => {
-    let aHiLo = new HiLoRegister(new Register8bit(0xAA), new Register8bit(0xBB), "AB Register");
+    const aHiLo = new HiLoRegister(new Register8bit(0xAA), new Register8bit(0xBB), "AB Register");
 
     test('Hi and Lo registers are configured on initialization', () => {
         expect(aHiLo.HiRegister).toBe(0xAA);
@@ -19,7 +19,7 @@ describe('HiLoRegister testing', () => {
     });
 
     test('getRegister returns Hi and Lo registers as a single 16bit value when both are defined', () => {
-        let value = aHiLo.getRegister();
+        const value = aHiLo.getRegister();
         expect(value).toBe(0xAABB);
     });
 });

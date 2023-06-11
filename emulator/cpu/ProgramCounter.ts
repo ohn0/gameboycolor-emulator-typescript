@@ -1,21 +1,23 @@
-import { Register16Bit } from "./register16bit";
+import { HiLoRegister } from "./HiLoRegister";
+import { Register8bit } from "./register";
 
 
-export class ProgramCounter extends Register16Bit {
+export class ProgramCounter extends HiLoRegister {
     constructor(registerName: string) {
-        super(registerName);
+        super(new Register8bit(0x00), new Register8bit(0x00), registerName);
         this.value = 0x000;
     }
 
     getCounterValue(): number {
-        return this.value++;
+        this.setRegister(this.getRegister() + 1);
+        return this.getRegister();
     }
 
     setCounterValue(_: number) {
-        this.value = _;
+        this.setRegister(_);
     }
 
     getCounterNoincrement(): number {
-        return this.value;
+        return this.getRegister();
     }
 }
