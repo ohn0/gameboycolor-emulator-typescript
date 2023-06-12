@@ -612,6 +612,11 @@ export class CPU {
         return this.RAM[address];
     }
 
+    writeMemory(value: number) {
+        this.RAM[this.HL.getRegister()] = value;
+    }
+
+
     read8BitRegister(registerKey: string): Register8bit {
         return this.registersLibrary8bit[registerKey];
     }
