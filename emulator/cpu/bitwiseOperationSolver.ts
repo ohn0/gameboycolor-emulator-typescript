@@ -153,22 +153,6 @@ export class BitwiseOperationSolver{
             ? this.oddMap[this.operation]
             : this.evenMap[this.operation];
         this.cpu.updateFlags(this.getBitState(bitToTest), false, true, undefined);
-        if (this.isOddOperation) {
-            //4,5,6,7 -
-            //8,9,A,B
-            //C,D,E,F
-            //-------
-            //1,3,5,7
-            
-            const bitToTest = this.oddMap[this.operation];
-            this.cpu.updateFlags(this.getBitState(bitToTest), false, true, undefined);
-        } else {
-            //4,5,6,7
-            //8,9,A,B
-            //C,D,E,F
-            //-------
-            //0,2,4,6
-        }
     }
 
     private RES_N() {
@@ -190,8 +174,6 @@ export class BitwiseOperationSolver{
 
     private getBitState(bitPosition: number) : boolean {
         return !((this.register.value & (1 << bitPosition)) == 0)
-        //0000 1100
-        //0000 0100
     }   
 
 }
