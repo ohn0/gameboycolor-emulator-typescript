@@ -597,7 +597,7 @@ export class CPU {
     }
 
     
-    private updateFlags(zState : boolean | undefined, nState: boolean | undefined, hState: boolean | undefined, cState: boolean | undefined) {
+    updateFlags(zState : boolean | undefined, nState: boolean | undefined, hState: boolean | undefined, cState: boolean | undefined) {
         this.flags["Z"] = zState != undefined ? zState : this.flags["Z"];
         this.flags["N"] = nState != undefined ? nState : this.flags["N"];
         this.flags["H"] = hState != undefined ? hState : this.flags["H"];
@@ -877,4 +877,5 @@ export class CPU {
             this.PC.setRegister(this.build16bitValue(this.popStack(), this.popStack()));
         }
     }
+
 }

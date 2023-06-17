@@ -3,20 +3,38 @@ import { Register8bit } from './register';
 
 export class BitwiseOperationSolver{
 
-    private operationsMap: { [opcode: number]: (operand : number, register : Register8bit) => number };
-    private operandsMap: { [opcode : number]: Register8bit};
+    private operationsMap: { [opcode: number]: () => void };
+    private operandsMap: { [opcode: number]: Register8bit };
+    private oddMap: { [operation: number]: number };
+    private evenMap: { [operation: number]: number };
     
     private cpu: CPU;
+    private operation: number;
+    private operand: number;
+    private register: Register8bit;
+    private isMemoryOperation: boolean;
+    private isOddOperation: boolean;
     constructor(cpu: CPU) {
         this.operationsMap = {
-            0: (operand, register ) : number => {
-                if (operand > 7) {
-                    //
-                } else {
-                    //
-                }
-                return 0;
+            0: () => {
+                this.register.value = this.register.value > 7
+                    ? this.RLC()
+                    : this.RRC();
             },
+        }
+
+        this.oddMap = {
+            4: 1,
+            5: 3,
+            6: 5,
+            7: 7
+        }
+
+        this.evenMap = {
+            4: 0,
+            5: 2,
+            6: 4,
+            7: 6
         }
 
         this.cpu = cpu;
@@ -39,6 +57,8 @@ export class BitwiseOperationSolver{
             0x5: this.cpu.read8BitRegister("L"),
             0xD: this.cpu.read8BitRegister("L"),
 
+            0x6: new Register8bit(0),
+            0xE: this.operandsMap[0x6],
             0x7: this.cpu.read8BitRegister("A"),
             0xF: this.cpu.read8BitRegister("A"),
 
@@ -63,25 +83,115 @@ export class BitwiseOperationSolver{
     //------maps---------
     //B C D E H L [HL]  A
 
-    decomposeKey(key: number): {operation: number,operand: number} {
-        const operation = key >> 1;
-        const operand = key & 0x0F;
-        return { operation, operand };
-    }
-
-    executeOperation(key: number, register: Register8bit | undefined) {
-        const ops = this.decomposeKey(key);
-        if (ops.operand == 0x6 || ops.operand == 0xE) {
-            const reg: Register8bit =
-                new Register8bit(this.cpu.readMemory(this.cpu.read16BitRegister("HL").getRegister()));
-            this.operandsMap[0x6] = reg;
-            this.operandsMap[0xE] = reg;
-            this.operationsMap[ops.operation](this.operandsMap[ops.operand], );
-            this.cpu.writeMemory()
+    decomposeKey(key: number) {
+        this.operation = key >> 8;
+        this.operand = key & 0x0F;
+        if (this.operand == 0x6 || this.operand == 0xE) {
+            const value = this.cpu.read16BitRegister("HL").getRegister();
+            this.operandsMap[0x6].value = value;
+            this.operandsMap[0xE].value = value;
+            this.isMemoryOperation = true;
         }
-        this.operationsMap[ops.operation](this.operandsMap[ops.operand]);
-
+        this.isOddOperation = this.operand >= 8;
+        this.register = this.operandsMap[this.operand];
     }
 
+    executeOperation(key: number) {
+        this.isMemoryOperation = false;
+        this.decomposeKey(key);
+        this.operationsMap[this.operation]();
+        if (this.isMemoryOperation) {
+            this.cpu.writeMemory(this.register.value);
+        }
+
+        this.cleanUp();
+    }
+
+    private cleanUp() {
+        this.operandsMap[0x6].value = -1;
+        this.operandsMap[0xE].value = -1;
+        this.isMemoryOperation = false;
+        this.operation = -1;
+        this.operand = -1;
+        this.isOddOperation = false;
+    }
+
+    private RLC() {
+        return 0;
+    }
+
+    private RRC() {
+        return 1;
+    }
+
+    private RL() {
+        return 2;
+    }
+
+    private RR() {
+        //
+    }
+
+    private SLA() {
+        //
+    }
+
+    private SRA() {
+        //
+    }
+
+    private SWAP() {
+        //
+    }
+
+    private SRL() {
+        //
+    }
+
+    private BIT_N() {
+        const bitToTest = this.isOddOperation
+            ? this.oddMap[this.operation]
+            : this.evenMap[this.operation];
+        this.cpu.updateFlags(this.getBitState(bitToTest), false, true, undefined);
+        if (this.isOddOperation) {
+            //4,5,6,7 -
+            //8,9,A,B
+            //C,D,E,F
+            //-------
+            //1,3,5,7
+            
+            const bitToTest = this.oddMap[this.operation];
+            this.cpu.updateFlags(this.getBitState(bitToTest), false, true, undefined);
+        } else {
+            //4,5,6,7
+            //8,9,A,B
+            //C,D,E,F
+            //-------
+            //0,2,4,6
+        }
+    }
+
+    private RES_N() {
+        const bitToReset = this.isOddOperation
+            ? this.oddMap[this.operation - 4]
+            : this.evenMap[this.operation - 4];
+        
+        this.register.value &= ~(1 << bitToReset);
+        
+    }
+
+    private SET_N() {
+        const bitToSet = this.isOddOperation
+            ? this.oddMap[this.operation - 8]
+            : this.evenMap[this.operation - 8];
+        
+        this.register.value |= (1 << bitToSet);
+    }
+
+    private getBitState(bitPosition: number) : boolean {
+        return !((this.register.value & (1 << bitPosition)) == 0)
+        //0000 1100
+        //0000 0100
+    }   
 
 }
