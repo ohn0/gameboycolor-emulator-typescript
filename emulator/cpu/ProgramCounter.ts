@@ -9,8 +9,9 @@ export class ProgramCounter extends HiLoRegister {
     }
 
     getCounterValue(): number {
+        const currentCounterValue = this.getRegister();
         this.setRegister(this.getRegister() + 1);
-        return this.getRegister();
+        return currentCounterValue;
     }
 
     setCounterValue(_: number) {
