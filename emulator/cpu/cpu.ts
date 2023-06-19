@@ -1,3 +1,4 @@
+import { BitwiseOperationSolver } from './bitwiseOperationSolver';
 import { Register8bit } from './register';
 import { FlagRegister } from "./FlagRegister";
 import { ProgramCounter } from "./ProgramCounter";
@@ -28,6 +29,7 @@ export class CPU {
     private registersLibrary8bit!: { [key : string] : Register8bit}
     private registersLibrary16bit!: { [key: string]: HiLoRegister | StackPointer }
     private flags!: { [key: string]: boolean }
+    private bitwiseSolver!: BitwiseOperationSolver;
     private IME: boolean;
     private IME_scheduled: boolean;
 
@@ -76,6 +78,8 @@ export class CPU {
             "N": this.F.zeroFlag,
             "C": this.F.carryFlag
         };
+
+        this.bitwiseSolver = new BitwiseOperationSolver(this);
 
         this.populateOpcodes();
     }
@@ -557,7 +561,7 @@ export class CPU {
                     this.RAM[this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC())];
             },
             0xCB: () => {
-                //bitwise op
+                this.bitwiseSolver.executeOperation(this.read8bitValueUsingPC());
             },
 
             0xDB: () => {throw new Error("INVALID OPCODE 0xDB");},

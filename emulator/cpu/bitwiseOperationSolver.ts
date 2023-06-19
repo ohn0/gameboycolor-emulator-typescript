@@ -9,18 +9,47 @@ export class BitwiseOperationSolver{
     private evenMap: { [operation: number]: number };
     
     private cpu: CPU;
-    private operation: number;
-    private operand: number;
-    private register: Register8bit;
-    private isMemoryOperation: boolean;
-    private isOddOperation: boolean;
+    private operation!: number;
+    private operand!: number;
+    private register!: Register8bit;
+    private isMemoryOperation!: boolean;
+    private isOddOperation!: boolean;
     constructor(cpu: CPU) {
         this.operationsMap = {
             0: () => {
-                this.register.value = this.register.value > 7
+                this.register.value > 7
                     ? this.RLC()
                     : this.RRC();
             },
+            1: () => {
+                this.register.value > 7
+                    ? this.RL()
+                    : this.RR()
+            },
+            2: () => {
+                this.register.value > 7
+                    ? this.SLA()
+                    : this.SRA()
+            },
+            3: ()=> {
+                this.register.value > 7
+                    ? this.SWAP()
+                    : this.SRL()
+            },
+            4: () => { this.BIT_N(); },
+            5: () => { this.BIT_N(); },
+            6: () => { this.BIT_N(); },
+            7: () => { this.BIT_N(); },
+
+            8: () => { this.RES_N(); },
+            9: () => { this.RES_N(); },
+            0xA: () => { this.RES_N(); },
+            0xB: () => { this.RES_N(); },
+
+            0xC: () => { this.SET_N(); },
+            0xD: () => { this.SET_N(); },
+            0xE: () => { this.SET_N(); },
+            0xF: () => { this.SET_N(); },
         }
 
         this.oddMap = {
@@ -58,10 +87,9 @@ export class BitwiseOperationSolver{
             0xD: this.cpu.read8BitRegister("L"),
 
             0x6: new Register8bit(0),
-            0xE: this.operandsMap[0x6],
+            0xE: new Register8bit(0),
             0x7: this.cpu.read8BitRegister("A"),
             0xF: this.cpu.read8BitRegister("A"),
-
         }
 
     }
@@ -83,7 +111,7 @@ export class BitwiseOperationSolver{
     //------maps---------
     //B C D E H L [HL]  A
 
-    decomposeKey(key: number) {
+    private decomposeKey(key: number) {
         this.operation = key >> 8;
         this.operand = key & 0x0F;
         if (this.operand == 0x6 || this.operand == 0xE) {
@@ -117,35 +145,61 @@ export class BitwiseOperationSolver{
     }
 
     private RLC() {
-        return 0;
+        const MSB = this.getMSB() == 1;
+        this.register.value <<= 1;
+        this.setLSB(MSB);
+        this.cpu.updateFlags(this.register.value == 0, false, false, MSB);
     }
 
     private RRC() {
-        return 1;
+        const LSB = this.getLSB();
+        this.register.value >>= 1;
+        this.register.value |= (0x80);
+        // this.register.value &= ~(LSB << 8);
+        this.setMSB(LSB == 1);
+        this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
 
     private RL() {
-        return 2;
+        const MSB = this.getMSB();
+        this.register.value <<= 1;
+        this.setLSB(this.cpu.readFlag("C"));
+        this.cpu.updateFlags(this.register.value == 0, false, false, MSB == 1);
     }
 
     private RR() {
-        //
+        const LSB = this.getLSB();
+        this.register.value >>= 1;
+        this.setMSB(this.cpu.readFlag("C"));
+        this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
 
     private SLA() {
-        //
+        const MSB = this.getMSB();
+        this.register.value <<= 1;
+        this.setLSB(false);
+        this.cpu.updateFlags(this.register.value == 0, false, false, MSB == 1);
     }
 
     private SRA() {
-        //
+        const MSB = this.getMSB();
+        const LSB = this.getLSB();
+        this.register.value >>= 1;
+        this.setMSB(MSB == 1);
+        this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
 
     private SWAP() {
-        //
+        this.register.value =
+            (this.register.value & 0xF0) | (this.register.value & 0xF);
+        this.cpu.updateFlags(this.register.value == 0, false, false, false);
     }
 
     private SRL() {
-        //
+        const LSB = this.getLSB();
+        this.register.value >>= 1;
+        this.setMSB(false);
+        this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
 
     private BIT_N() {
@@ -175,5 +229,21 @@ export class BitwiseOperationSolver{
     private getBitState(bitPosition: number) : boolean {
         return !((this.register.value & (1 << bitPosition)) == 0)
     }   
+
+    private getMSB(): number {
+        return (this.register.value & 0x80) == 0 ? 0 : 1; 
+    }
+
+    private getLSB(): number {
+        return (this.register.value & 0x01);
+    }
+
+    private setLSB(value : boolean): void {
+        this.register.value |= value ? 1 : 0
+    }
+
+    private setMSB(value: boolean): void {
+        this.register.value &= ~((value? 1 : 0) << 8);
+    }
 
 }
