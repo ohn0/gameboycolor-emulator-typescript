@@ -1,3 +1,4 @@
+import { OPCODE_COST_12, OPCODE_COST_16, OPCODE_COST_8 } from './constants';
 import { CPU } from './cpu';
 import { Register8bit } from './register';
 
@@ -14,6 +15,7 @@ export class BitwiseOperationSolver{
     private register!: Register8bit;
     private isMemoryOperation!: boolean;
     private isOddOperation!: boolean;
+    private operationCost: number;
     constructor(cpu: CPU) {
         this.operationsMap = {
             0: () => {
@@ -92,6 +94,8 @@ export class BitwiseOperationSolver{
             0xF: this.cpu.read8BitRegister("A"),
         }
 
+        this.operationCost = 0;
+
     }
 
     //RLC: 0x00 - 0x07
@@ -129,7 +133,13 @@ export class BitwiseOperationSolver{
         this.decomposeKey(key);
         this.operationsMap[this.operation]();
         if (this.isMemoryOperation) {
+            this.operationCost = this.operation >= 0x4 && this.operation <= 0x7
+                ? OPCODE_COST_12
+                : OPCODE_COST_16;
             this.cpu.writeMemory(this.register.value);
+            this.cpu.setOperationCost(this.operationCost);
+        } else {
+            this.cpu.setOperationCost(OPCODE_COST_8);
         }
 
         this.cleanUp();
@@ -142,6 +152,7 @@ export class BitwiseOperationSolver{
         this.operation = -1;
         this.operand = -1;
         this.isOddOperation = false;
+        this.operationCost = 0;
     }
 
     private RLC() {
