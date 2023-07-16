@@ -1,20 +1,16 @@
 export class counter {
-    private incrementRate: number;
     private resetValue: number;
     private counter: number;
-    private interruptTriggered: boolean;
+    private _interruptTriggered = false;
+
     constructor(modulo = 0) {
         this.resetValue = modulo;
         this.counter = 0;
         this.interruptTriggered = false;
     }
 
-    public setClockRate(clockRate : number): void {
-        this.incrementRate = clockRate;
-    }
- 
     public tick() {
-        this.counter += this.incrementRate;
+        this.counter++;
         this.interruptTriggered = false;
         if (this.counter > 0xFF) {
             this.counter = this.resetValue;
@@ -22,4 +18,10 @@ export class counter {
         }
     }
 
+    public get interruptTriggered(): boolean {
+        return this._interruptTriggered;
+    }
+    public set interruptTriggered(value: boolean) {
+        this._interruptTriggered = value;
+    }
 }

@@ -7,6 +7,7 @@ describe('CPU opcode testing',() => {
     
     test('opcode 0x01 sets BC value to 0xABCD from immediate memory', () => {
         setRamValue16bit(0xABCD, 0x1111);
+        cpu.configureProgramCounter(0x1111);
         cpu.executeOpcode(0x01);
         expect(cpu.read16BitRegister("BC").getRegister()).toBe(0xABCD);
     })
@@ -78,14 +79,12 @@ describe('CPU opcode testing',() => {
 
     test('opcode 0x0A loads RAM[BC] into A', () => {
         setRamValue16bit(0xAC1D, 0x1111);
+        cpu.configureProgramCounter(0x1111);
         cpu.executeOpcode(0x01);
-        setRamValue16bit(0x00F1, 0x1111);
-        cpu.executeOpcode(0x31);
-        setPcValue(cpu, 0xAC1D);
-        cpu.executeOpcode(0x08);
 
+        setRamValue(0xFF, 0xAC1D);
         cpu.executeOpcode(0x0A);
-        expect(cpu.read8BitRegister("A").value).toBe(0xF1);
+        expect(cpu.read8BitRegister("A").value).toBe(0xFF);
     });
 
     test('opcode 0x0B decrements BC by 1', () => {
@@ -200,9 +199,9 @@ describe('CPU opcode testing',() => {
     });
 
     test('opcode 0x18 performs a jump by adding the immediate 8 bit value to the PC.', () => {
-        setRamValue(0xF0, 0x1111);
+        setRamValue(0x7F, 0x1111);
         cpu.executeOpcode(0x18);
-        expect(cpu.readPC()).toBe(0x1111 + 0xF0 + 1);
+        expect(cpu.readPC()).toBe(0x1111 + 0x1 + 0x7F);
     });
 
     test('opcode 0x19 sets HL to the sum of HL and BC', () => {
@@ -216,15 +215,11 @@ describe('CPU opcode testing',() => {
     });
 
     test('opcode 0x1A loads RAM[DE] into A', () => {
-        setRamValue16bit(0xAC1D, 0x1111);
+        setRamValue16bit(0xCDCC, 0x1000);
         cpu.executeOpcode(0x11);
-        setRamValue16bit(0x00F1, 0x1111);
-        cpu.executeOpcode(0x31);
-        setPcValue(cpu, 0xAC1D);
-        cpu.executeOpcode(0x08);
-
+        cpu.configureRamValue(0xDD, 0xCDCC);
         cpu.executeOpcode(0x1A);
-        expect(cpu.read8BitRegister("A").value).toBe(0xF1);
+        expect(cpu.read8BitRegister("A").value).toBe(0xDD);
     });
 
     test('opcode 0x1B decrements DE by 1', () => {
@@ -287,9 +282,9 @@ describe('CPU opcode testing',() => {
     test('opcode 0x20 performs a conditional jump to PC + immediate 8 bit value when Zero flag is set to false', () => {
         cpu.setFlag("Z", false);
         cpu.configureProgramCounter(0x4000);
-        setRamValue(0xAA, 0x4000);
+        setRamValue(0x71, 0x4000);
         cpu.executeOpcode(0x20);
-        expect(cpu.readPC()).toBe(0x4000 + 0xAA + 0x01);
+        expect(cpu.readPC()).toBe(0x4000 + 0x71 + 0x01);
     });
 
     test('opcode 0x20 performs no conditional jump when Zero flag is set to true', () => {
@@ -357,9 +352,9 @@ describe('CPU opcode testing',() => {
     test('opcode 0x28 jumps to PC+ given 8 bit value if Zero flag is set.', () => { 
         cpu.setFlag("Z", true);
         cpu.configureProgramCounter(0x4000);
-        setRamValue(0xAA, 0x4000);
+        setRamValue(0x66, 0x4000);
         cpu.executeOpcode(0x28);
-        expect(cpu.readPC()).toBe(0x4000 + 0xAA + 0x01);
+        expect(cpu.readPC()).toBe(0x4000 + 0x66 + 0x01);
     });
 
     test('opcode 0x29 adds HL to HL', () => {
@@ -381,7 +376,7 @@ describe('CPU opcode testing',() => {
     test('opcode 0x31 sets SP\'s value to the specified input.', () => {
         setRamValue16bit(0xBEEF, 0x1111);
         cpu.executeOpcode(0x31);
-        expect(cpu.readSP().getStackValue()).toBe(0xBEEF);
+        expect(cpu.read16BitRegister("SP").getRegister()).toBe(0xBEEF);
     });
 
     test('opcode 0x3E sets A value to 0xD', () => {
@@ -414,8 +409,8 @@ function setPcValue(cpu: CPU, pcvalue: number): void{
     cpu.configureProgramCounter(pcvalue);
 }
 
-function setRamValue16bit(value : number, pcValue : number): void {
-    cpu.configureRamValue(value >> 8, pcValue);
-    cpu.configureRamValue(value & 0xFF, pcValue + 1);
+function setRamValue16bit(value: number, pcValue: number): void {
+    cpu.configureRamValue(value & 0xFF, pcValue);
+    cpu.configureRamValue(value >> 8, pcValue+1);
     cpu.configureProgramCounter(pcValue);
 }

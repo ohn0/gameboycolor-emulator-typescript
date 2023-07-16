@@ -1,3 +1,4 @@
+import { InterruptHandler } from './InterruptHandler';
 import { counter } from './timers/counter';
 import { divider } from './timers/divider';
 import { clock } from './timers/clock';
@@ -10,6 +11,7 @@ import { StackPointer } from "./StackPointer";
 import { HiLoRegister } from "./HiLoRegister";
 import { Uint8 } from '../../primitives/uint8';
 import { controlState, controlStates } from './timers/controlStates';
+import { Interrupt } from './interrupt';
 
 export class CPU {
 
@@ -35,7 +37,6 @@ export class CPU {
     private registersLibrary16bit!: { [key: string]: HiLoRegister | StackPointer }
     private flags!: { [key: string]: boolean }
     private bitwiseSolver!: BitwiseOperationSolver;
-    private IME: boolean;
     private IME_scheduled: boolean;
     private operationCost!: number;
     private operationCostModified: boolean;
@@ -43,6 +44,7 @@ export class CPU {
     private counter: counter;
     private clock: clock;
     private controlState: controlState;
+    private interruptHandler: InterruptHandler;
 
     constructor() {
         this.A = new Register8bit(0);
@@ -60,9 +62,14 @@ export class CPU {
         
         this.SP = new StackPointer(0x00,0x00, "Stack Pointer");
         this.PC = new ProgramCounter("Program Counter");
-        this.IME = false;
         this.IME_scheduled = false;
-        
+        this.interruptHandler = new InterruptHandler();
+        this.interruptHandler.addInterrupt(new Interrupt("VBLANK", 0x40, 1, 0));
+        this.interruptHandler.addInterrupt(new Interrupt("LCD_STAT", 0x48, 2, 1));
+        this.interruptHandler.addInterrupt(new Interrupt("TIMER", 0x50, 3, 2));
+        this.interruptHandler.addInterrupt(new Interrupt("SERIAL", 0x58, 4, 3));
+        this.interruptHandler.addInterrupt(new Interrupt("JOYPAD", 0x60, 5, 4));
+
         this.RAM = new Uint8Array(0xFFFF);
         this.registersLibrary8bit = {
             "A": this.A,
@@ -93,14 +100,16 @@ export class CPU {
         this.bitwiseSolver = new BitwiseOperationSolver(this);
         this.operationCostModified = false;
         //MUST LOAD RAM BEFORE SETTING DIVIDER AND COUNTER TIMERS
-        this.controlState = controlStates.getControlState(this.RAM[0xFF07]);
+        this.controlState = controlStates.getControlState(this.readMemory(0xFF07));
         this.divider = new divider();
         this.counter = new counter(this.controlState.clockRate);
-        this.clock = new clock(() => {
-            this.divider.incrementCounter();
-        }, () => {
-            this.counter.tick();
-        },this.controlState);
+        this.clock = new clock(
+            () => {
+                this.divider.incrementCounter();
+                this.RAM[this.divider.location] = this.divider.registerCounter; //don't call writeMemory for this write
+            },
+            () => this.counter.tick(),
+            this.controlState);
 
         this.populateOpcodes();
     }
@@ -127,7 +136,7 @@ export class CPU {
             0x02: () => {
                 this.loadMemoryRegister(this.BC.getRegister(), this.A);
             },
-            0x12: () => this.loadMemoryRegister(this.RAM[this.DE.getRegister()], this.A),
+            0x12: () => this.loadMemoryRegister(this.readMemory(this.DE.getRegister()), this.A),
             0x22: () => {
                 this.loadMemoryRegister(this.HL.getRegister(), this.A);
                 this.HL.setRegister(this.HL.getRegister() + 1);
@@ -171,8 +180,11 @@ export class CPU {
                 const seventh_bit_a = 0x80 & this.A.value;
                 const numeric_c_flag = this.flags["C"] == true ? 1 : 0;
                 this.A.value <<= 1;
-                this.A.value ^= numeric_c_flag; //XOR
-                this.updateFlags(false, false, false, seventh_bit_a == 1);
+                if (numeric_c_flag) {
+                    this.A.value |= 1;
+                }
+                // this.A.value ^= numeric_c_flag; //XOR
+                this.updateFlags(false, false, false, seventh_bit_a > 0);
             },
             0x27: () => {
                 //DAA
@@ -218,14 +230,14 @@ export class CPU {
             0x29: () => this.add_HL(this.HL),
             0x39: () => this.add_HL(this.SP),
 
-            0x0A: () => this.loadAccumulator(this.RAM[this.BC.getRegister()]),
-            0x1A: () => this.loadAccumulator(this.RAM[this.DE.getRegister()]),
+            0x0A: () => this.loadAccumulator(this.readMemory(this.BC.getRegister())),
+            0x1A: () => this.loadAccumulator(this.readMemory(this.DE.getRegister())),
             0x2A: () => {
-                this.loadAccumulator(this.RAM[this.HL.getRegister()]);
+                this.loadAccumulator(this.readMemory(this.HL.getRegister()));
                 this.increment_16(this.HL);
             },
             0x3A: () => {
-                this.loadAccumulator(this.RAM[this.HL.getRegister()]);
+                this.loadAccumulator(this.readMemory(this.HL.getRegister()));
                 this.decrement_16(this.HL);
             },
 
@@ -317,7 +329,7 @@ export class CPU {
             0x66: () => this.loadRegisterMemory(this.H),
             0x76: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-                this.IME = false;
+                this.interruptHandler.masterInterruptFlag = false;
             },
 
             0x47: () => this.loadRegisterRegister(this.B, this.A),
@@ -475,13 +487,13 @@ export class CPU {
             0xE0: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
                 const value = this.read8bitValueUsingPC();
-                this.RAM[0xFF00 + value] = this.A.value;
+                this.writeMemory(this.A.value, 0xFF00 + value);
             },
 
             0xF0: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
                 const value = this.read8bitValueUsingPC();
-                this.A.value = this.RAM[0xFF00 + value];
+                this.A.value = this.readMemory(0xFF00 + value);
             },
 
             0xC1: () => {
@@ -511,11 +523,11 @@ export class CPU {
             },
 
             0xE2: () => {
-                this.loadMemoryRegister(this.RAM[0xFF00 + this.C.value], this.A);
+                this.loadMemoryRegister(this.readMemory(0xFF00 + this.C.value), this.A);
             },
 
             0xF2: () => {
-                this.loadAccumulator(this.RAM[0xFF00 + this.C.value]);
+                this.loadAccumulator(this.readMemory(0xFF00 + this.C.value));
             },
 
             0xC3: () => {
@@ -527,7 +539,7 @@ export class CPU {
             0xE3: () => { throw new Error("INVALID OPCODE 0xE3"); },
             0xF3: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-                this.IME = false;
+                
             },
 
             0xC4: () => {
@@ -584,7 +596,7 @@ export class CPU {
             0xD9: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
                 this.conditionalRet(true);
-                this.IME = true;
+                this.interruptHandler.masterInterruptFlag = true;
             },
 
             0xE9: () => {
@@ -607,13 +619,13 @@ export class CPU {
 
             0xEA: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
-                this.RAM[this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC())]
-                    = this.A.value;
+                this.writeMemory(this.A.value,
+                    this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC()));
             },
             0xFA: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
                 this.A.value =
-                    this.RAM[this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC())];
+                    this.readMemory(this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC()));
             },
             0xCB: () => {
                 this.bitwiseSolver.executeOperation(this.read8bitValueUsingPC());
@@ -659,6 +671,10 @@ export class CPU {
     loop() {
         let isQuitting = false;
         while (!isQuitting) {
+            if (this.IME_scheduled) {
+                this.IME_scheduled = false;
+                this.interruptHandler.masterInterruptFlag = true;
+            }
             const opcode = this.read8bitValueUsingPC();
             this.executeOpcode(opcode);
             let ticker = 0;
@@ -668,6 +684,11 @@ export class CPU {
                 this.updateTimers();
             }
 
+            this.interruptHandler.configure(this.readMemory(0xFFFF), this.readMemory(0xFF0F));
+            //check for interrupts and service them
+
+            this.writeMemory(this.interruptHandler.getInterruptEnableFlag(), 0xFFFF);
+            this.writeMemory(this.interruptHandler.getInterruptFlag(), 0xFF0F);
             isQuitting = this.shouldQuit();
             this.operationCostModified = false;
         }
@@ -685,9 +706,15 @@ export class CPU {
     }
 
     updateTimers() {
-        if (this.divider.getTriggerStatus()) {
+        if (this.divider.overflowTriggered) {
             //divider value reset
         }
+
+        if (this.counter.interruptTriggered) {
+            // request interrupt $50
+            // this.interruptHandler.
+        }
+
     }
 
     shouldQuit(): boolean{
@@ -702,8 +729,14 @@ export class CPU {
         return this.RAM[address];
     }
 
-    writeMemory(value: number) {
-        this.RAM[this.HL.getRegister()] = value;
+    writeMemory(value: number, address = -1) {
+        if (address == -1) {
+            address = this.HL.getRegister();
+        }
+        else if (address == 0xFF04) {
+            value = 0;
+        }
+        this.RAM[address] = value;
     }
 
 
@@ -724,21 +757,21 @@ export class CPU {
     }
 
     configureRamValue(value: number, address: number): void{
-        this.RAM[address] = value;
+        this.writeMemory(value, address);
     }
 
     read8bitValueUsingPC(): number {
-        return this.RAM[this.PC.getCounterValue()];
+        return this.readMemory(this.PC.getCounterValue());
     }
 
     set8bitValueUsingPC(value: number): void {
-        this.RAM[this.PC.getCounterValue()] = value;
+        this.writeMemory(value, this.PC.getCounterValue());
     }
 
     private popStack(): number {
         const currentStackPointer = this.SP.getRegister();
         this.SP.setRegister(currentStackPointer + 1);
-        return this.RAM[currentStackPointer];
+        return this.readMemory(currentStackPointer);
     }
 
     build16bitValue(lsb: number, msb: number): number { return msb << 8 | lsb; }
@@ -753,12 +786,12 @@ export class CPU {
 
     private loadMemoryRegister(memoryLocation: number, register: Register8bit) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-        this.RAM[memoryLocation] = register.value;
+        this.writeMemory(register.value, memoryLocation);
     }
 
     private loadRegisterImmediate(register: Register8bit) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-        register.value = this.RAM[this.PC.getCounterValue()];
+        register.value = this.readMemory(this.PC.getCounterValue());
     }
 
     private loadRegisterRegister(registerTo: Register8bit, registerFrom: Register8bit) {
@@ -769,17 +802,18 @@ export class CPU {
 
     private loadRegisterMemory(register: Register8bit) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-        register.value = this.RAM[this.HL.getRegister()];
+        register.value = this.readMemory(this.HL.getRegister());
     }
 
     private loadAccumulator(value: number, isFromRegister = false) {
         this.setOperationCost(isFromRegister ? OPCODE_COSTS_T_STATES.OPCODE_COST_4 : OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+        console.log(`DE's value: ${value}`);
         this.A.value = value;
     }
 
     private loadMemoryImmediate(address: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
-        this.RAM[address] = this.read8bitValueUsingPC();
+        this.writeMemory(this.read8bitValueUsingPC(), address);
     }
 
     private loadRegisterImmediate_16(register: HiLoRegister | StackPointer, immediateValue: number) {
@@ -812,6 +846,8 @@ export class CPU {
     private jump() {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
         const jump_by_n_bits = this.read8bitValueUsingPC();
+        console.log(jump_by_n_bits);
+        console.log(new Uint8(jump_by_n_bits).getSignedRepresentation());
         this.PC.setCounterValue(this.PC.getCounterNoincrement() + 
             new Uint8(jump_by_n_bits).getSignedRepresentation());
     }
@@ -825,9 +861,9 @@ export class CPU {
 
     private incrementMemory(memoryLocation: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
-        const initialValue = this.RAM[memoryLocation];
-        this.RAM[memoryLocation]++;
-        this.updateFlags(this.RAM[memoryLocation] == 0, false, (initialValue & 0x08) > 0, undefined);
+        const initialValue = this.readMemory(memoryLocation);
+        this.writeMemory(initialValue + 1, memoryLocation);
+        this.updateFlags(this.readMemory(memoryLocation) == 0, false, (initialValue & 0x08) > 0, undefined);
     }
     
     private decrement(register: Register8bit) {
@@ -839,9 +875,9 @@ export class CPU {
 
     private decrementMemory(memoryLocation: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
-        const initialValue = this.RAM[memoryLocation];
-        this.RAM[memoryLocation]--;
-        this.updateFlags(this.RAM[memoryLocation] == 0, true, (initialValue & 0x08) > 0, undefined);
+        const initialValue = this.readMemory(memoryLocation);
+        this.writeMemory(initialValue - 1, memoryLocation);
+        this.updateFlags(this.readMemory(memoryLocation) == 0, true, (initialValue & 0x08) > 0, undefined);
     }
 
     private increment_16(register: HiLoRegister | StackPointer) {
@@ -965,8 +1001,8 @@ export class CPU {
     private writeUnsigned16BitFromSPToMemory() {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_20);
         const address = this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC());
-        this.RAM[address] = this.SP.LoRegister;
-        this.RAM[address + 1] = this.SP.HiRegister;
+        this.writeMemory(this.SP.LoRegister, address);
+        this.writeMemory(this.SP.HiRegister, address+1);
     }
 
     private conditionalCall(conditionalResult: boolean, register: HiLoRegister) {
@@ -982,8 +1018,8 @@ export class CPU {
     private push(register: HiLoRegister) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
         this.SP.setRegister(this.SP.getRegister() - 2);
-        this.RAM[this.SP.getRegister()] = register.LoRegister;
-        this.RAM[this.SP.getRegister() + 1] = register.HiRegister;
+        this.writeMemory(register.LoRegister, this.SP.getRegister());
+        this.writeMemory(register.HiRegister, this.SP.getRegister()+1);
     }
 
     private pop(register: HiLoRegister) {
@@ -994,8 +1030,8 @@ export class CPU {
     private rst(address: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
         this.SP.setRegister(this.SP.getRegister() - 2);
-        this.RAM[this.SP.getRegister()] = this.PC.HiRegister;
-        this.RAM[this.SP.getRegister() + 1] = this.PC.LoRegister;
+        this.writeMemory(this.PC.HiRegister, this.SP.getRegister());
+        this.writeMemory(this.PC.LoRegister, this.SP.getRegister()+1);
 
         this.PC.setRegister(address);
     }
