@@ -1,8 +1,9 @@
+import { InitializationMapper } from './../MemoryMap/initializationMapper';
 import { InterruptHandler } from './InterruptHandler';
 import { counter } from './timers/counter';
 import { divider } from './timers/divider';
 import { clock } from './timers/clock';
-import { OPCODE_COSTS_T_STATES } from './constants';
+import { INTERRUPT_SOURCES, OPCODE_COSTS_T_STATES } from './constants';
 import { BitwiseOperationSolver } from './bitwiseOperationSolver';
 import { Register8bit } from './register';
 import { FlagRegister } from "./FlagRegister";
@@ -60,17 +61,18 @@ export class CPU {
         this.DE = new HiLoRegister(this.D, this.E, "DE");
         this.HL = new HiLoRegister(this.H, this.L, "HL");
         
-        this.SP = new StackPointer(0x00,0x00, "Stack Pointer");
+        this.SP = new StackPointer(0xFF,0xFF, "Stack Pointer");
         this.PC = new ProgramCounter("Program Counter");
         this.IME_scheduled = false;
         this.interruptHandler = new InterruptHandler();
-        this.interruptHandler.addInterrupt(new Interrupt("VBLANK", 0x40, 1, 0));
-        this.interruptHandler.addInterrupt(new Interrupt("LCD_STAT", 0x48, 2, 1));
-        this.interruptHandler.addInterrupt(new Interrupt("TIMER", 0x50, 3, 2));
-        this.interruptHandler.addInterrupt(new Interrupt("SERIAL", 0x58, 4, 3));
-        this.interruptHandler.addInterrupt(new Interrupt("JOYPAD", 0x60, 5, 4));
+        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK, 0x40, 1, 0));
+        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT, 0x48, 2, 1));
+        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER, 0x50, 3, 2));
+        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_SERIAL, 0x58, 4, 3));
+        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_JOYPAD, 0x60, 5, 4));
 
-        this.RAM = new Uint8Array(0xFFFF);
+        this.RAM = InitializationMapper.initializeToDMG(new Uint8Array(0xFFFF));
+        this.configureProgramCounter(0x0100);
         this.registersLibrary8bit = {
             "A": this.A,
             "B": this.B,
@@ -686,7 +688,16 @@ export class CPU {
 
             this.interruptHandler.configure(this.readMemory(0xFFFF), this.readMemory(0xFF0F));
             //check for interrupts and service them
+            const routineLocation = this.interruptHandler.handle();
+            if (routineLocation > 0) {
+                // this.writeMemory(this.PC.HiRegister, this.SP.getRegister());
+                // this.SP.setRegister(this.SP.getRegister() - 1);
 
+                // this.writeMemory(this.PC.LoRegister, this.SP.getRegister());
+                // this.SP.setRegister(this.SP.getRegister() - 1);
+                this.pushValueToStack(this.PC.LoRegister, this.PC.HiRegister);
+                this.configureProgramCounter(routineLocation);
+            }
             this.writeMemory(this.interruptHandler.getInterruptEnableFlag(), 0xFFFF);
             this.writeMemory(this.interruptHandler.getInterruptFlag(), 0xFF0F);
             isQuitting = this.shouldQuit();
@@ -712,7 +723,7 @@ export class CPU {
 
         if (this.counter.interruptTriggered) {
             // request interrupt $50
-            // this.interruptHandler.
+            this.interruptHandler.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER);
         }
 
     }
@@ -1017,9 +1028,10 @@ export class CPU {
 
     private push(register: HiLoRegister) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
-        this.SP.setRegister(this.SP.getRegister() - 2);
-        this.writeMemory(register.LoRegister, this.SP.getRegister());
-        this.writeMemory(register.HiRegister, this.SP.getRegister()+1);
+        this.pushValueToStack(register.LoRegister, register.HiRegister);
+        // this.SP.setRegister(this.SP.getRegister() - 2);
+        // this.writeMemory(register.LoRegister, this.SP.getRegister()+1);
+        // this.writeMemory(register.HiRegister, this.SP.getRegister()+2);
     }
 
     private pop(register: HiLoRegister) {
@@ -1027,12 +1039,19 @@ export class CPU {
         register.setRegister(this.build16bitValue(this.popStack(), this.popStack()))
     }
 
+    private pushValueToStack(LowByte: number, HighByte: number) : void {
+        this.SP.setRegister(this.SP.getRegister() - 2);
+        this.writeMemory(LowByte, this.SP.getRegister()+1);
+        this.writeMemory(HighByte, this.SP.getRegister()+2);
+    }
+
     private rst(address: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
-        this.SP.setRegister(this.SP.getRegister() - 2);
-        this.writeMemory(this.PC.HiRegister, this.SP.getRegister());
-        this.writeMemory(this.PC.LoRegister, this.SP.getRegister()+1);
+        // this.SP.setRegister(this.SP.getRegister() - 2);
+        // this.writeMemory(this.PC.HiRegister, this.SP.getRegister()+1);
+        // this.writeMemory(this.PC.LoRegister, this.SP.getRegister()+2);
 
+        this.pushValueToStack(this.PC.HiRegister, this.PC.LoRegister);
         this.PC.setRegister(address);
     }
 
