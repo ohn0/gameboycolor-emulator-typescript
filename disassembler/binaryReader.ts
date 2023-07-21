@@ -1,4 +1,4 @@
-import {readFileSync, readFile} from 'fs';
+import * as fs from 'fs';
 import { Buffer } from 'node:buffer';
 
 export class binaryReader{
@@ -28,26 +28,26 @@ export class binaryReader{
     loadBinary(path: string) : Promise<Buffer> {
         this.path = path;
         return new Promise<Buffer>(function (resolve, reject) {
-            readFile(path, (err, data) => {
+            fs.readFile(path, (err, data) => {
                 if (err) reject(err)
                 else resolve(data);
-            }); 
+            });
+
+            // readFile(path, (err, data) => {
+            //     if (err) reject(err)
+            //     else resolve(data);
+            // }); 
         })
     }
 
     loadBinarySync(path: string): Buffer {
         this.path = path;
-        this.binary = readFileSync(path);
+        this.binary = fs.readFileSync(path);
         return this.binary;
     }
 
     read(offset = 0): number {
-        try {
-            return this.binary.readUInt8(offset);
-        } catch (error) {
-            throw error;
-        } 
-
+        return this.binary.readUInt8(offset);
     }
 }
 

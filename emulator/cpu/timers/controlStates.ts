@@ -1,3 +1,4 @@
+import { clock } from './clock';
 export interface controlState {
     isRunning: boolean,
     clockRate : number
@@ -53,6 +54,11 @@ export abstract  class controlStates{
     };
 
     public static getControlState(key : number): controlState {
+        if (this.states[key] == undefined)
+            return  {
+                isRunning: false,
+                clockRate: 0x9999
+            };
         return this.states[key];
     }
 }

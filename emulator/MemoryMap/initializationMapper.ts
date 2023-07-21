@@ -1,8 +1,8 @@
 export class InitializationMapper{
-    public static initializeToDMG(RAM: Uint8Array): Uint8Array {
+    public static initializePostBootRAMState(RAM: Uint8Array, GameBoyTypeKey: string): Uint8Array {
         RAM[0xFF00] = 0xCF;
         RAM[0xFF01] = 0x00;
-        RAM[0xFF02] = 0x7E;
+        RAM[0xFF02] = GameBoyTypeKey == "DMG" ? 0x7E : 0x7F;
         RAM[0XFF04] = 0XAB;
         RAM[0XFF05] = 0X00;
         RAM[0XFF06] = 0X00;
@@ -35,7 +35,7 @@ export class InitializationMapper{
         RAM[0XFF43] = 0X00;
         RAM[0XFF44] = 0X00;
         RAM[0XFF45] = 0X00;
-        RAM[0XFF46] = 0XFF;
+        RAM[0XFF46] = GameBoyTypeKey == "DMG" ? 0XFF : 0x00;
         RAM[0XFF47] = 0XFC;
         RAM[0XFF48] = 0X00;
         RAM[0XFF49] = 0X00;
@@ -56,11 +56,7 @@ export class InitializationMapper{
         RAM[0XFF70] = 0XFF;
         RAM[0XFFFF] = 0X00;
 
-
         return RAM;
     }
-
-
-
 
 }

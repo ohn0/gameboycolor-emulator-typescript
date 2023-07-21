@@ -1,3 +1,5 @@
 export interface iMBC {
-    interceptWrite(memoryWrite : {index: number; value: number;}): void;
+    interceptWrite(memoryWrite: { index: number; value: number; }): void;
+    
+    initialLoad(RAM: Uint8Array): void;
 }

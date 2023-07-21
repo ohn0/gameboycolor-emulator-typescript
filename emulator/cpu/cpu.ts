@@ -71,7 +71,7 @@ export class CPU {
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_SERIAL, 0x58, 4, 3));
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_JOYPAD, 0x60, 5, 4));
 
-        this.RAM = InitializationMapper.initializeToDMG(new Uint8Array(0xFFFF));
+        this.RAM = InitializationMapper.initializePostBootRAMState(new Uint8Array(0xFFFF), "DMG");
         this.configureProgramCounter(0x0100);
         this.registersLibrary8bit = {
             "A": this.A,
