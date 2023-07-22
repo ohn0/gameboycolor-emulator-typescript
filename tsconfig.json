@@ -3,13 +3,15 @@
         "strict": true,
         "target": "ES6",
         "outDir": "output",
-        "moduleResolution": "node"
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true
     },
     "ts-node": {
         "transpileOnly": true,
         "files": true,
         "compilerOptions": {
-            "rootDir": "."
+            "rootDir": ".",
+            "allowSyntheticDefaultImports": true
         }
     }
 }
