@@ -818,7 +818,6 @@ export class CPU {
 
     private loadAccumulator(value: number, isFromRegister = false) {
         this.setOperationCost(isFromRegister ? OPCODE_COSTS_T_STATES.OPCODE_COST_4 : OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-        console.log(`DE's value: ${value}`);
         this.A.value = value;
     }
 
@@ -857,8 +856,6 @@ export class CPU {
     private jump() {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
         const jump_by_n_bits = this.read8bitValueUsingPC();
-        console.log(jump_by_n_bits);
-        console.log(new Uint8(jump_by_n_bits).getSignedRepresentation());
         this.PC.setCounterValue(this.PC.getCounterNoincrement() + 
             new Uint8(jump_by_n_bits).getSignedRepresentation());
     }

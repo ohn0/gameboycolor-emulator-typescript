@@ -21,15 +21,19 @@ export class mbcCreator{
     private static readonly mbcFactory: { [key: number]: () => iMBC } = {
         0x00: () => new MBC0(),
         0x01: () => new MBC1(),
+        0x02: () => new MBC1(),
+        0x03: () => new MBC1(),
         0x05: () => new MBC2(),
         0x11: () => new MBC3()
     }
 
 
-    static getMBC(mbcType: number): iMBC{
+    static getMBC(mbcType: number, gameData : Uint8Array): iMBC{
         if (this.mbcFactory[mbcType] == undefined) {
             throw new Error(`mbcType ${mbcType} is not supported.`);
         }
+        const mbc = this.mbcFactory[mbcType]();
+        mbc.configureMBC(gameData);
         return this.mbcFactory[mbcType]();
     }
 }

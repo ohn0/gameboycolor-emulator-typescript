@@ -8,7 +8,11 @@ export class Bank{
         this._romBank = value;
     }
 
+    public isValidBank(): boolean {
+        return this.romBank.length > 0
+    }
+
     constructor() {
-        this.romBank = new Uint8Array(0x4000);
+        // this.romBank = new Uint8Array(0x4000);
     }
 }

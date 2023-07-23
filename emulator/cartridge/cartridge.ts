@@ -1,4 +1,5 @@
 import { iMBC } from "../MemoryBankControllers/iMBC";
+import { mbcCreator } from "../MemoryBankControllers/mbcCreator";
 import { RomLoader } from "../romLoader";
 
 export class Cartridge{
@@ -20,13 +21,13 @@ export class Cartridge{
 
     constructor(filename: string) {
         this.gameData = RomLoader.load(filename);
+        this.mbc = mbcCreator.getMBC(this.getMbcConfiguration().mbcType, this.gameData);
     }
 
     private getMbcConfiguration(): { mbcType: number, romSize: number, ramSize: number } {
         if (this.gameData.length == 0) {
             throw new Error("game data is not yet initialized.");
         }
-        // return this.gameData[0x147];
         return {
             mbcType: this.gameData[0x147],
             romSize: this.gameData[0x148],

@@ -12,11 +12,16 @@ export class MBC0 implements iMBC{
     constructor() {
         //
     }
+    initialBank!: Bank;
+    banks!: Bank[];
+    configureMBC(gameData: Uint8Array): void {
+        this.populateBank(gameData);
+    }
 
 
-    pushBankToRAM(key: number): void {
-        if (key != 0)
-            throw new Error(`key ${key} is not valid for MBC0, can only be 0`);
+    pushBankToRAM(memoryLocation : number, value : number): void {
+        if (value != 0)
+            throw new Error(`key ${value} is not valid for MBC0, can only be 0`);
     }
     populateBanks(): void {
         throw new Error('Method not implemented.');
@@ -27,7 +32,10 @@ export class MBC0 implements iMBC{
         throw new Error('Method not implemented.');
     }
 
-    private populateBank(gameData : Uint8Array) {
+    private populateBank(gameData: Uint8Array) {
+        this.banks = new Array<Bank>(1);
         this.bank.romBank = gameData.slice(0, 0x4000);
+        this.initialBank = this.bank;
+        this.banks[0] = this.bank;
     }
 }
