@@ -17,5 +17,7 @@ describe('uint8 testing', () => {
         expect(z.getSignedRepresentation()).toBe(0x7F);
         z.value = 0x9F;
         expect(z.getSignedRepresentation()).toBe(-97);
+        z.value = 251;
+        expect(z.getSignedRepresentation()).toBe(-5);
     })
 });

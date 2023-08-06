@@ -1,7 +1,9 @@
+import { MBC0 } from '../../emulator/MemoryBankControllers/MBC0';
+import { RAM } from '../../emulator/RAM/RAM';
 import { CPU } from '../../emulator/cpu/cpu';
 import { describe, expect, test } from "@jest/globals";
 
-const cpu: CPU = new CPU();
+const cpu: CPU = new CPU(new RAM(new MBC0()));
 
 describe('CPU opcode testing',() => {
     
