@@ -21,14 +21,22 @@ export class RAM{
     constructor(mbc: iMBC) {
         this.ram = new Uint8Array(0xFFFF);
         this.mbc = mbc;
+        let idx = 0;
+        this.mbc.initialBank.romBank.forEach(x => {
+            this.ram[idx++] = x;
+        })
     }
 
     write(address: number, value: number) {
-        // this.mbc.
-        this.ram[address] = value;
+        if (address < 0x8000) { 
+            this.mbc.interceptWrite({ address, value });
+        }
+        else {
+            this.ram[address] = value;
+        }
     }
 
-    read(address : number): Uint8 {
+    read(address: number): Uint8 {
         return new Uint8(this.ram[address]);
     }
 
