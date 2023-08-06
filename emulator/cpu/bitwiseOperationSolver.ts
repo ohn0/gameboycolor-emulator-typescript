@@ -3,7 +3,6 @@ import { CPU } from './cpu';
 import { Register8bit } from './register';
 
 export class BitwiseOperationSolver{
-
     private operationsMap: { [opcode: number]: () => void };
     private operandsMap: { [opcode: number]: Register8bit };
     private oddMap: { [operation: number]: number };
@@ -19,22 +18,22 @@ export class BitwiseOperationSolver{
     constructor(cpu: CPU) {
         this.operationsMap = {
             0: () => {
-                this.register.value > 7
+                this.operand <= 7
                     ? this.RLC()
                     : this.RRC();
             },
             1: () => {
-                this.register.value > 7
+                this.operand <= 7
                     ? this.RL()
                     : this.RR()
             },
             2: () => {
-                this.register.value > 7
+                this.operand <= 7
                     ? this.SLA()
                     : this.SRA()
             },
             3: ()=> {
-                this.register.value > 7
+                this.operand <= 7
                     ? this.SWAP()
                     : this.SRL()
             },
@@ -88,8 +87,8 @@ export class BitwiseOperationSolver{
             0x5: this.cpu.read8BitRegister("L"),
             0xD: this.cpu.read8BitRegister("L"),
 
-            0x6: new Register8bit(0),
-            0xE: new Register8bit(0),
+            0x6: new Register8bit(0, "0x6_TEMP_BITWISE_OPERATION_REGISTER"),
+            0xE: new Register8bit(0, "0xE_TEMP_BITWISE_OPERATION_REGISTER"),
             0x7: this.cpu.read8BitRegister("A"),
             0xF: this.cpu.read8BitRegister("A"),
         }
@@ -116,8 +115,9 @@ export class BitwiseOperationSolver{
     //B C D E H L [HL]  A
 
     private decomposeKey(key: number) {
-        this.operation = key >> 8;
+        this.operation = key >> 4;
         this.operand = key & 0x0F;
+        // console.log(`decomposed ${key.toString(16)} into operation operand ${this.operation.toString(16)}, ${this.operand.toString(16)}`)
         if (this.operand == 0x6 || this.operand == 0xE) {
             const value = this.cpu.read16BitRegister("HL").getRegister();
             this.operandsMap[0x6].value = value;
@@ -129,6 +129,7 @@ export class BitwiseOperationSolver{
     }
 
     executeOperation(key: number) {
+        // console.log(`executing a bitwise CB operation with key ${key.toString(16)}`);
         this.isMemoryOperation = false;
         this.decomposeKey(key);
         this.operationsMap[this.operation]();
@@ -141,7 +142,6 @@ export class BitwiseOperationSolver{
         } else {
             this.cpu.setOperationCost(OPCODE_COST_8);
         }
-
         this.cleanUp();
     }
 
@@ -209,6 +209,7 @@ export class BitwiseOperationSolver{
     private SRL() {
         const LSB = this.getLSB();
         this.register.value >>= 1;
+        // console.log(this.register.value);
         this.setMSB(false);
         this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
@@ -254,7 +255,14 @@ export class BitwiseOperationSolver{
     }
 
     private setMSB(value: boolean): void {
-        this.register.value &= ~((value? 1 : 0) << 8);
+        //if setting to true, register.value | 0b10000000
+        //if setting to false, register.value & 0b01111111
+        if (value) {
+            this.register.value |= 0b10000000
+        }
+        else {
+            this.register.value &= 0b01111111
+        }
     }
 
 }

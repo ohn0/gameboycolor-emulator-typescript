@@ -42,7 +42,7 @@ export class HiLoRegister extends Register16Bit {
             throw new Error(`ERROR: ${value} is greater than 0xFFFF(65535), unable 
         to store it in a 16 bit register.`);
 
-        this.HiRegister = value >> 8;
+        this.HiRegister = (value >> 8) & 0x00FF;
         this.LoRegister = value & 0x00FF;
         this.value = value;
     }

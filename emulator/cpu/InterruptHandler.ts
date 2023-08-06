@@ -28,7 +28,7 @@ export class InterruptHandler{
     public getInterruptEnableFlag(): number {
         return this.interruptEnableFlag.value;
     }
-
+    
     public configure(IEFlag: number, IF: number) : void {
         this.interruptEnableFlag.value = IEFlag;
         this.interruptFlag.value = IF;
