@@ -117,9 +117,9 @@ export class GameBoyMemoryMap extends MemoryMap {
         this.memory.forEach(byte => byte = value);
     }
 
-    public write(index: number, value: number): boolean {
-        if (index < 0x8000) {
-            this._memoryBank.interceptWrite({index, value});
+    public write(address: number, value: number): boolean {
+        if (address < 0x8000) {
+            this._memoryBank.interceptWrite({ address, value});
         }
 
         return true;
