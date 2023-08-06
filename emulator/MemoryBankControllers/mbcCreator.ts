@@ -33,7 +33,7 @@ export class mbcCreator{
             throw new Error(`mbcType ${mbcType} is not supported.`);
         }
         const mbc = this.mbcFactory[mbcType]();
-        mbc.configureMBC(gameData);
-        return this.mbcFactory[mbcType]();
+        mbc.configure(gameData);
+        return mbc;
     }
 }

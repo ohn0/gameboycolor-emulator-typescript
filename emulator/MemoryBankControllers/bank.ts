@@ -13,6 +13,6 @@ export class Bank{
     }
 
     constructor() {
-        // this.romBank = new Uint8Array(0x4000);
+        this.romBank = new Uint8Array();
     }
 }

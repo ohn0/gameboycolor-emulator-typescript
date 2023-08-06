@@ -1,11 +1,20 @@
 import { Bank } from './bank';
 import { iMBC } from './iMBC';
 export class MBC1 implements iMBC{
+    private _bankWasChanged!: boolean;
+    public get bankWasChanged(): boolean {
+        return this._bankWasChanged;
+    }
+    public set bankWasChanged(value: boolean) {
+        this._bankWasChanged = value;
+    }
     initialBank!: Bank;
     banks!: Bank[];
     private currentBankIndex!: number;
+
     
-    configureMBC(gameData: Uint8Array): void {
+    configure(gameData: Uint8Array): void {
+        this._bankWasChanged = false;
         this.banks = new Array<Bank>(125);
         const gameSize = gameData.length;
         let byteIndex = 0x4000;
@@ -29,33 +38,24 @@ export class MBC1 implements iMBC{
         }
     }
     
-    pushBankToRAM(memoryLocation: number, value: number): Bank {
-        const z = 0x60;
+    updateBankIndex(memoryLocation: number, value: number): void {
         if (memoryLocation >= 0x2000 && memoryLocation <= 0x3FFF) {
             const lower5Bits = value & 0b0011111;
             this.currentBankIndex &= 0b1100000;
             this.currentBankIndex |= lower5Bits;
+            this.bankWasChanged = true;
         }
         else if (memoryLocation >= 0x4000 && memoryLocation <= 0x5FFF) {
             const upper2Bits = value & 0b1100000;
             this.currentBankIndex &= 0b0011111;
             this.currentBankIndex |= upper2Bits;
+            this.bankWasChanged = true;
         }
-        return this.banks[this.currentBankIndex];
     }
     
-    populateBanks(): void {
-        throw new Error('Method not implemented.');
-    }
-    
-    interceptWrite(memoryWrite: { index: number; value: number; }): void {
-        throw new Error('Method not implemented.');
-    }
-
-    private updateBankIndex(isUpdatingLowerBits : boolean, value : number) {
-        if (isUpdatingLowerBits) {
-            this.currentBankIndex
-        }
+    interceptWrite(memoryWrite: { address: number; value: number; }): void {
+        this.bankWasChanged = false;
+        this.updateBankIndex(memoryWrite.address, memoryWrite.value);
     }
 
 }

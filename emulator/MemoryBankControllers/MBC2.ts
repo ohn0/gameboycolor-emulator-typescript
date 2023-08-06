@@ -4,13 +4,20 @@ import { iMBC } from "./iMBC";
 export class MBC2 implements iMBC{
     initialBank!: Bank;
     banks!: Bank[];
-    configureMBC(gameData: Uint8Array): void {
+    private _bankWasChanged!: boolean;
+    public get bankWasChanged(): boolean {
+        return this._bankWasChanged;
+    }
+    public set bankWasChanged(value: boolean) {
+        this._bankWasChanged = value;
+    }
+    configure(gameData: Uint8Array): void {
         throw new Error("Method not implemented.");
     }
-    interceptWrite(memoryWrite: { index: number; value: number; }): void {
+    interceptWrite(memoryWrite: { address: number; value: number; }): void {
         throw new Error("Method not implemented.");
     }
-    pushBankToRAM(memoryLocation : number, value : number): void {
+    updateBankIndex(memoryLocation : number, value : number): void {
         throw new Error("Method not implemented.");
     }
     populateBanks(): void {
