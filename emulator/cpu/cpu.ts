@@ -113,10 +113,11 @@ export class CPU {
             this.configureProgramCounter(0x0100);
             if (this.gameBoyType == "DMG") {
                 
-                this.flags["Z"] = true;
-                this.flags["N"] = false;
-                this.flags["H"] = true;
-                this.flags["C"] = true;
+                // this.flags["Z"] = true;
+                // this.flags["N"] = false;
+                // this.flags["H"] = true;
+                // this.flags["C"] = true;
+                this.updateFlags(true, false, true, true);
                 this.F.value = 0b10110000;
 
                 this.A.value = 0x01;
@@ -232,23 +233,42 @@ export class CPU {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
                 let overflowCheck = false;
                 let carryCheck = false;
-                const a_lo_bits = this.A.value & 0x0F;
+                const a_lo_bits = this.A.value & 0xF;
+                const hi_bits = (this.A.value >> 4) & 0xF;
+                let BcdAdjustedA = this.A.value;
                 if (a_lo_bits > 0x09 || this.flags["H"]) {
                     overflowCheck = this.A.value > 0xF9;
-                    this.A.value += 0x06;
-                    const a_hi_bits = this.A.value >> 4;
-
-                    if (a_hi_bits > 0x09 || this.flags["C"]) {
-                        this.A.value += 0x60;
-                        if (!overflowCheck) {
-                            overflowCheck = this.A.value > 0x9F;
-                        }
-                        carryCheck = true
-                    }
-                    else {
-                        carryCheck = false;
+                    if (this.flags["N"]) {
+                        this.logger.logString(`================================\n`);
+                        this.logger.logString(`subtracting ${BcdAdjustedA} - 0x06 = ${(this.unsignedsubtractionAB(BcdAdjustedA, 0x06)).toString(16)}\n`)
+                        this.logger.logString(`================================\n`);
+                        // BcdAdjustedA -= 0x06;
+                        BcdAdjustedA = this.unsignedsubtractionAB(BcdAdjustedA, 0x06);
+                    } else {
+                        BcdAdjustedA += 0x06;
                     }
                 }
+
+                const a_hi_bits = (this.A.value >> 4) & 0xF;
+
+                if (this.A.value > 0x99 || this.flags["C"]) {
+                    if (this.flags["N"]) {
+                        this.logger.logString(`================================\n`);
+                        this.logger.logString(`subtracting ${BcdAdjustedA} - 0x60 = ${this.unsignedsubtractionAB(BcdAdjustedA, 0x60).toString(16)}\n`)
+                        this.logger.logString(`================================\n`);
+                        // BcdAdjustedA -= 0x60;
+                        BcdAdjustedA = this.unsignedsubtractionAB(BcdAdjustedA, 0x60);
+                        // BcdAdjustedA = (BcdAdjustedA - 0x60) % 256;
+                    } else {
+                        BcdAdjustedA += 0x60;
+                    }
+                    if (!overflowCheck) {
+                        overflowCheck = this.A.value > 0x9F;
+                    }
+                    carryCheck = true
+                }
+
+                this.A.value = BcdAdjustedA;
                 this.updateFlags(this.A.value == 0, undefined, false, carryCheck);
             },
             0x37: () => {
@@ -319,15 +339,12 @@ export class CPU {
             },
             0x2F: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-                this.A.value = ~this.A.value;
-                this.flags["N"] = true;
-                this.flags["H"] = true;
+                this.A.value = (~this.A.value) & 0xFF;
+                this.updateFlags(undefined, true, true, undefined);
             },
             0x3F: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-                this.flags["C"] = !this.flags["C"];
-                this.flags["N"] = false;
-                this.flags["H"] = false;
+                this.updateFlags(undefined, false, false, !this.flags["C"]);
             },
 
             0x40: () => this.loadRegisterRegister(this.B, this.B),
@@ -509,7 +526,7 @@ export class CPU {
             0x8F: () => this.addFromMemory(true),
             0x9F: () => {
                 this.subtractFromMemory(true);
-                this.updateFlags(undefined, true, undefined, undefined);
+                // this.updateFlags(undefined, true, undefined, undefined);
             },
             0xAF: () => {
                 this.xor(this.A.value);
@@ -557,14 +574,15 @@ export class CPU {
             0xF1: () => {
                 this.pop(this.AF);
                 this.updateFlags(this.F.zeroFlag, this.F.subtractionFlag, this.F.halfCarryFlag, this.F.carryFlag);
+                this.F.value &= 0xF0;
             },
 
             0xC2: () => {
-                this.conditional16BitJump(this.flags["Z"] != false);
+                this.conditional16BitJump(this.flags["Z"] == false);
             },
             
             0xD2: () => {
-                this.conditional16BitJump(this.flags["C"] != false);
+                this.conditional16BitJump(this.flags["C"] == false);
             },
 
             0xE2: () => {
@@ -1087,7 +1105,7 @@ export class CPU {
     private xor(value: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
         this.A.value ^= value;
-        this.updateFlags(this.A.value == 0, false, false, false);
+        this.updateFlags(true, false, false, false);
     }
 
     private cmp(value: number) {
@@ -1185,6 +1203,9 @@ export class CPU {
         this.logger.logRegister8bit(this.H);
         this.logger.logRegister8bit(this.L);
 
+        this.logger.logRegister16bit(this.AF);
+        this.logger.logRegister16bit(this.BC);
+        this.logger.logRegister16bit(this.DE);
         this.logger.logRegister16bit(this.SP);
         this.logger.logRegister16bit(this.PC);
         this.logger.logString('(');

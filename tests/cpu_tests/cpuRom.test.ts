@@ -11,6 +11,7 @@ import * as fs from 'fs';
 let loadedRom: iMBC;
 let ram: RAM;
 let cpu: CPU;
+const specialTests = '01-special.gb';
 const ldTests = '06-ld r,r.gb';
 const opSpTests = '03-op sp,hl.gb';
 describe('testing using blargg test roms', () => {
@@ -20,7 +21,7 @@ describe('testing using blargg test roms', () => {
         //start looping
 
     loadedRom = mbcCreator.getMBC(mbcCreator.MBC0,
-        RomLoader.load(path.resolve(__dirname, '..\\..', ldTests)));
+        RomLoader.load(path.resolve(__dirname, '..\\..', specialTests)));
     ram = new RAM(loadedRom);
     cpu = new CPU(ram, true);
     cpu.debugState = true;
