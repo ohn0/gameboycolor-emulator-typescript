@@ -23,6 +23,6 @@ export class Uint8{
     }
 
     public getSignedRepresentation(): number {
-        return this._value << 24 >> 24;
+        return (this._value << 24) >> 24;
     }
 }
