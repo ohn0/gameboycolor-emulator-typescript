@@ -1,4 +1,4 @@
-import { opcodes } from './../resources/Opcodes';
+import {Opcodes} from '../resources/Opcodes';
 import { HiLoRegister } from "../emulator/cpu/HiLoRegister";
 import { Register8bit } from "../emulator/cpu/register";
 import * as fs from 'fs';
@@ -81,12 +81,12 @@ export class Logger{
         const hexOpcode = `0x${opcode.toString(16).toUpperCase()}`;
         const opCodeDetails =
             isPrefixed
-                ? opcodes.cbprefixed.find(o => o.code == opcode)
-                : opcodes.unprefixed.find(o => o.code == opcode);
+                ? Opcodes.cbprefixed.find(o => o.opcode == opcode)
+                : Opcodes.unprefixed.find(o => o.opcode == opcode);
         this.opcodesTrace.push({
             traceMessage: `opcode ${hexOpcode} executed, ${opCodeDetails?.mnemonic}`,
             code: {
-                opcode: opCodeDetails?.code,
+                opcode: opCodeDetails?.opcode,
                 mnemonic: opCodeDetails?.mnemonic,
                 operands: opCodeDetails?.operands.toString(),
                 isPrefixed : isPrefixed
