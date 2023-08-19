@@ -133,6 +133,7 @@ export class BitwiseOperationSolver{
         this.isMemoryOperation = false;
         this.decomposeKey(key);
         this.operationsMap[this.operation]();
+        this.cpu.logger.logOpCode(key, true);
         if (this.isMemoryOperation) {
             this.operationCost = this.operation >= 0x4 && this.operation <= 0x7
                 ? OPCODE_COST_12
@@ -201,15 +202,15 @@ export class BitwiseOperationSolver{
     }
 
     private SWAP() {
-        this.register.value =
-            (this.register.value & 0xF0) | (this.register.value & 0xF);
+        // this.register.value =
+        //     (this.register.value & 0xF0) | (this.register.value & 0xF);
+        this.register.value = ((this.register.value & 0xF) << 4) | ((this.register.value & 0xF0) >> 4)
         this.cpu.updateFlags(this.register.value == 0, false, false, false);
     }
 
     private SRL() {
         const LSB = this.getLSB();
         this.register.value >>= 1;
-        // console.log(this.register.value);
         this.setMSB(false);
         this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
