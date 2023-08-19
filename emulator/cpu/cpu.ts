@@ -407,33 +407,33 @@ export class CPU {
             0x6F: () => this.loadRegisterRegister(this.L, this.A),
             0x7F: () => this.loadAccumulator(this.A.value, true),
 
-            0x80: () => this.add(this.B),
-            0x90: () => this.subtract(this.B),
+            0x80: () => this.aggregatedAdd(this.B.value),
+            0x90: () => this.subtract(this.B.value),
             0xA0: () => this.and(this.B.value),
             0xB0: () => this.or(this.B.value),
 
-            0x81: () => this.add(this.C),
-            0x91: () => this.subtract(this.C),
+            0x81: () => this.aggregatedAdd(this.C.value),
+            0x91: () => this.subtract(this.C.value),
             0xA1: () => this.and(this.C.value),
             0xB1: () => this.or(this.C.value),
 
-            0x82: () => this.add(this.D),
-            0x92: () => this.subtract(this.D),
+            0x82: () => this.aggregatedAdd(this.D.value),
+            0x92: () => this.subtract(this.D.value),
             0xA2: () => this.and(this.D.value),
             0xB2: () => this.or(this.D.value),
 
-            0x83: () => this.add(this.E),
-            0x93: () => this.subtract(this.E),
+            0x83: () => this.aggregatedAdd(this.E.value),
+            0x93: () => this.subtract(this.E.value),
             0xA3: () => this.and(this.E.value),
             0xB3: () => this.or(this.E.value),
             
-            0x84: () => this.add(this.H),
-            0x94: () => this.subtract(this.H),
+            0x84: () => this.aggregatedAdd(this.H.value),
+            0x94: () => this.subtract(this.H.value),
             0xA4: () => this.and(this.H.value),
             0xB4: () => this.or(this.H.value),
 
-            0x85: () => this.add(this.L),
-            0x95: () => this.subtract(this.L),
+            0x85: () => this.aggregatedAdd(this.L.value),
+            0x95: () => this.subtract(this.L.value),
             0xA5: () => this.and(this.L.value),
             0xB5: () => this.or(this.L.value),
             
@@ -448,48 +448,48 @@ export class CPU {
                 this.or(this.readMemory(this.HL.getRegister()));
             },
 
-            0x87: () => this.add(this.A),
-            0x97: () => this.subtract(this.A),
+            0x87: () => this.aggregatedAdd(this.A.value),
+            0x97: () => this.subtract(this.A.value),
             0xA7: () => this.and(this.A.value),
             0xB7: () => this.or(this.A.value),
 
-            0x88: () => this.addCarry(this.B),
-            0x98: () => this.subtractCarry(this.B),
+            0x88: () => this.aggregatedAdd(this.B.value, true),
+            0x98: () => this.subtract(this.B.value, true),
             0xA8: () => this.xor(this.B.value),
             0xB8: () => this.cmp(this.B.value),
             
-            0x89: () => this.addCarry(this.C),
-            0x99: () => this.subtractCarry(this.C),
+            0x89: () => this.aggregatedAdd(this.C.value, true),
+            0x99: () => this.subtract(this.C.value, true),
             0xA9: () => this.xor(this.C.value),
             0xB9: () => this.cmp(this.C.value),
             
-            0x8A: () => this.addCarry(this.D),
-            0x9A: () => this.subtractCarry(this.D),
+            0x8A: () => this.aggregatedAdd(this.D.value, true),
+            0x9A: () => this.subtract(this.D.value, true),
             0xAA: () => this.xor(this.D.value),
             0xBA: () => this.cmp(this.D.value),
 
-            0x8B: () => this.addCarry(this.E),
-            0x9B: () => this.subtractCarry(this.E),
+            0x8B: () => this.aggregatedAdd(this.E.value, true),
+            0x9B: () => this.subtract(this.E.value, true),
             0xAB: () => this.xor(this.E.value),
             0xBB: () => this.cmp(this.E.value),
             
-            0x8C: () => this.addCarry(this.H),
-            0x9C: () => this.subtractCarry(this.H),
+            0x8C: () => this.aggregatedAdd(this.H.value, true),
+            0x9C: () => this.subtract(this.H.value, true),
             0xAC: () => this.xor(this.H.value),
             0xBC: () => this.cmp(this.H.value),
             
-            0x8D: () => this.addCarry(this.L),
-            0x9D: () => this.subtractCarry(this.L),
+            0x8D: () => this.aggregatedAdd(this.L.value, true),
+            0x9D: () => this.subtract(this.L.value, true),
             0xAD: () => this.xor(this.L.value),
             0xBD: () => this.cmp(this.L.value),
             
             0x8E: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-                this.addCarryMemory(this.readMemory(this.HL.getRegister()))
+                this.aggregatedAdd(this.readMemory(this.HL.getRegister()), true)
             },
             0x9E: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8)
-                this.subtractCarryMemory(this.readMemory(this.HL.getRegister()));
+                this.subtract(this.readMemory(this.HL.getRegister()), true);
             },
             0xAE: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
@@ -596,7 +596,10 @@ export class CPU {
             0xE5: () => { this.push(this.HL); },
             0xF5: () => { this.push(this.AF); },
 
-            0xC6: () => { this.addImmediate(); },
+            0xC6: () => {
+                this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+                this.aggregatedAdd(this.read8bitValueUsingPC());
+            },
             0xD6: () => { this.subtractImmediate(); },
             0xE6: () => { this.and(this.read8bitValueUsingPC()); },
             0xF6: () => { this.or(this.read8bitValueUsingPC()); },
@@ -711,8 +714,8 @@ export class CPU {
             0xED: () => {throw new Error("INVALID OPCODE 0xED");},
             0xFD: () => { throw new Error("INVALID OPCODE 0xFD"); },
 
-            0xCE: () => { this.addCarry(new Register8bit(this.read8bitValueUsingPC(), "0xCE_TEMP_REGISTER")); },
-            0xDE: () => { this.subtractCarry(new Register8bit(this.read8bitValueUsingPC(), "0xDE_TEMP_REGISTER")); },
+            0xCE: () => { this.aggregatedAdd(this.read8bitValueUsingPC(), true); },
+            0xDE: () => { this.subtract(this.read8bitValueUsingPC()); },
             0xEE: () => { this.xor(this.read8bitValueUsingPC()); },
             0xFE: () => { this.cmp(this.read8bitValueUsingPC()); },
 
@@ -976,99 +979,55 @@ export class CPU {
         this.updateFlags(undefined,false,halfCarry, fullCarry > 0xFFFF )
     }
 
-    private add(register: Register8bit) {
-        this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-        const carryState = this.getAddCarryStatus(register.value);
-        this.A.value += register.value;
-        this.updateFlags(this.A.value == 0, false, ...carryState);
-    }
-
     private addFromMemory(isCarry = false) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
         const carryFlagValue = isCarry ? this.flags["C"] ? 1 : 0 : 0;
-        const carryState = this.getAddCarryStatus(this.readMemory(this.HL.getRegister()) + carryFlagValue);
+        const carryState = this.getCarryStatus(this.readMemory(this.HL.getRegister()) + carryFlagValue, false, true);
         this.A.value += (carryFlagValue + this.readMemory(this.HL.getRegister()))
         this.updateFlags(this.A.value == 0, false, ...carryState)
     }
 
-    private addCarry(register: Register8bit) {
+    private aggregatedAdd(value: number, carryCheck = false) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-        const result = this.A.value + register.value + (this.flags["C"] ? 1 : 0);
-        const carryState = this.getAddCarryStatus(register.value, this.flags["C"]);
+        const result = this.A.value + value +
+            (carryCheck ? this.flags["C"] ? 1 : 0
+                        : 0);
+        const carryState = this.getCarryStatus(value, carryCheck ? this.flags["C"] : false, true);
         this.A.value = result;
         this.updateFlags(this.A.value == 0, false, ...carryState);
     }
 
-    private addCarryMemory(value : number) {
+    private subtract(value: number, isCarry = false) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-        const result = this.A.value + value + (this.flags["C"] ? 1 : 0);
-        const carryState = this.getAddCarryStatus(value, this.flags["C"]);
-        this.A.value = result;
-        this.updateFlags(this.A.value == 0, false, ...carryState);
-    }
-
-
-    private addImmediate() {
-        this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-        const immediateValue = this.read8bitValueUsingPC();
-        const carryState = this.getAddCarryStatus(immediateValue);
-        this.A.value += immediateValue;
-        this.updateFlags(this.A.value == 0, false, ...carryState);
-    }
-
-    private subtract(register: Register8bit) {
-        this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-        const carryResult = this.getSubCarryStatus(register.value);
-        this.A.value = this.unsignedsubtractionAB(this.A.value, register.value);
-        this.updateFlags(this.A.value == 0, true, ...carryResult)
-    }
-
-    private subtractCarry(register: Register8bit) {
-        this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-        const carryState = this.getSubCarryStatus(register.value, true);
-        this.A.value = this.unsignedsubtractionAB(this.A.value - (this.flags["C"] ? 1 : 0), register.value );
-        this.updateFlags(this.A.value == 0, true, ...carryState);
-    }
-
-    private subtractCarryMemory(value : number) {
-        this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-        const carryState = this.getSubCarryStatus(value, true);
-        this.A.value = this.unsignedsubtractionAB(this.A.value - (this.flags["C"] ? 1 : 0), value );
+        const carryState = this.getCarryStatus(value, isCarry);
+        this.A.value = this.unsignedsubtractionAB(
+            this.A.value - (isCarry
+            ? this.flags["C"] ? 1 : 0
+            : 0), value);
         this.updateFlags(this.A.value == 0, true, ...carryState);
     }
 
     private subtractFromMemory(isCarry = false) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
         const carryFlagValue = isCarry ? this.flags["C"] ? 1 : 0 : 0;
-        const carryState = this.getSubCarryStatus(this.readMemory(this.HL.getRegister()) - carryFlagValue);
-        this.A.value = this.unsignedsubtractionAB(this.A.value, this.readMemory(this.HL.getRegister()) - carryFlagValue);
-        this.updateFlags(this.A.value == 0, true, ...carryState);
+        const value = this.readMemory(this.HL.getRegister()) - carryFlagValue;
+        this.subtract(value, isCarry);
     }
 
     private subtractImmediate() {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
         const immediateValue = this.read8bitValueUsingPC();
-        const carryState = this.getSubCarryStatus(immediateValue);
-
-        this.A.value = this.unsignedsubtractionAB(this.A.value, immediateValue);
-        this.updateFlags(this.A.value == 0, true, ...carryState);
+        this.subtract(immediateValue);
     }
     
-    private getAddCarryStatus(value: number, isCarryOpcode = false): [boolean, boolean] {
-        let isCarry = 0;
-        if (isCarryOpcode)
-            isCarry = 1;
-        const msb_carry = this.A.value + value + isCarry > 0xFF;
-        const lsb_carry = this.halfCarryOccurs(this.A.value, value+isCarry);
-        return [lsb_carry, msb_carry];
-    }
-
-    private getSubCarryStatus(value : number, isCarryOpcode = false): [boolean, boolean | undefined] {
-        let isCarry = 0;
-        if (isCarryOpcode)
-            isCarry = 1;
-        const msb_carry = (this.A.value - isCarry) < value;
-        const lsb_carry = this.halfCarryOccurs(this.A.value, value-isCarry, false);
+    private getCarryStatus(value: number, isCarryOpcode = false, isAdd = false) : [boolean, boolean] {
+        const isCarry = isCarryOpcode ? 1 : 0;
+        const msb_carry =
+            isAdd ? this.A.value + value + isCarry > 0xFF
+                  : (this.A.value - isCarry) < value;
+        const lsb_carry = this.halfCarryOccurs(this.A.value,
+            isAdd ? value + isCarry
+                  : value - isCarry, isAdd);
         return [lsb_carry, msb_carry];
     }
 
@@ -1092,7 +1051,7 @@ export class CPU {
 
     private cmp(value: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
-        const carryResult = this.getSubCarryStatus(value);
+        const carryResult = this.getCarryStatus(value);
         const result = this.unsignedsubtractionAB(this.A.value, value);
         this.updateFlags(result == 0, true, ...carryResult)
     }
