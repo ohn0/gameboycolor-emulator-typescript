@@ -73,7 +73,7 @@ export class Logger{
         }
         let output = ''
         this.messages.forEach(message => output += message+'\n');
-        fs.writeFileSync("logOutput.yaml", output);
+        fs.writeFileSync(path.resolve(__dirname,'..\\logOutput', "logOutput.yaml"), output);
         this.messages = new Array<string>();
     }
 
@@ -114,12 +114,6 @@ export class Logger{
             }
             output += o.traceMessage + '\n'
         });
-        // uniqueOpcodes = uniqueOpcodes.sort((a, b) => {
-        //     if (a.opcode != undefined && b.opcode != undefined) {
-        //         return a.opcode = b.opcode;
-        //     }
-        //     return 0;
-        // });
         uniqueOpcodes.forEach(u =>
             uniqueOpcodeOutput += `0x${u.opcode?.toString(16).toLocaleUpperCase().padStart(2, '0')}: ${u.mnemonic}` + '\n');
         

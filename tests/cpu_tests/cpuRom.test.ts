@@ -12,6 +12,7 @@ let cpu: CPU;
 const specialTests = '01-special.gb';
 const ldTests = '06-ld r,r.gb';
 const opSpTests = '03-op sp,hl.gb';
+const resourceLocation = "..\\resources";
 describe('testing using blargg test roms', () => {
         //load the test ROM into an MBC
         //create a RAM and link MBC to it
@@ -19,14 +20,14 @@ describe('testing using blargg test roms', () => {
         //start looping
 
     loadedRom = mbcCreator.getMBC(mbcCreator.MBC0,
-        RomLoader.load(path.resolve(__dirname, '..\\resources', specialTests)));
-        // RomLoader.load(path.resolve(__dirname, '..\\..', ldTests)));
-        // RomLoader.load(path.resolve(__dirname, '..\\..', opSpTests)));
+        // RomLoader.load(path.resolve(__dirname, resourceLocation, specialTests)));
+        RomLoader.load(path.resolve(__dirname, resourceLocation, ldTests)));
+        // RomLoader.load(path.resolve(__dirname, resourceLocation, opSpTests)));
     ram = new RAM(loadedRom);
     cpu = new CPU(ram, true);
     cpu.debugState = true;
     cpu.DebugAlwaysReturnVBlank();
-    cpu.configureDebugStateLoopLimit(1300);
+    cpu.configureDebugStateLoopLimit(1300000);
     
     test('MBC0 initialized successfully', () => {
 
