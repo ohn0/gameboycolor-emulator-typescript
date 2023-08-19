@@ -8,4 +8,6 @@ output
 *.gbc
 *.ini
 *.gb
-logOutput.yaml
+tests/resources
+logOutput/
+resources/

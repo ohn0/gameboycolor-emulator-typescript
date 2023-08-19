@@ -1,12 +1,10 @@
 import { describe, expect, test } from "@jest/globals";
 import { CPU } from "../../emulator/cpu/cpu";
-import { MBC0 } from "../../emulator/MemoryBankControllers/MBC0";
 import { RAM } from "../../emulator/RAM/RAM";
 import { mbcCreator } from "../../emulator/MemoryBankControllers/mbcCreator";
 import { RomLoader } from "../../emulator/romLoader";
 import * as path from 'path';
 import { iMBC } from "../../emulator/MemoryBankControllers/iMBC";
-import * as fs from 'fs';
 
 let loadedRom: iMBC;
 let ram: RAM;
@@ -21,12 +19,14 @@ describe('testing using blargg test roms', () => {
         //start looping
 
     loadedRom = mbcCreator.getMBC(mbcCreator.MBC0,
-        RomLoader.load(path.resolve(__dirname, '..\\..', specialTests)));
+        RomLoader.load(path.resolve(__dirname, '..\\resources', specialTests)));
+        // RomLoader.load(path.resolve(__dirname, '..\\..', ldTests)));
+        // RomLoader.load(path.resolve(__dirname, '..\\..', opSpTests)));
     ram = new RAM(loadedRom);
     cpu = new CPU(ram, true);
     cpu.debugState = true;
     cpu.DebugAlwaysReturnVBlank();
-    cpu.configureDebugStateLoopLimit(250000);
+    cpu.configureDebugStateLoopLimit(1300);
     
     test('MBC0 initialized successfully', () => {
 
@@ -48,6 +48,4 @@ describe('testing using blargg test roms', () => {
     test('run tests from ROM', () => {
         const z = cpu.loop();
     })
-
-
 })
