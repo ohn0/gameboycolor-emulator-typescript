@@ -3,12 +3,15 @@ import { HiLoRegister } from "../emulator/cpu/HiLoRegister";
 import { Register8bit } from "../emulator/cpu/register";
 import * as fs from 'fs';
 import * as  path from 'path';
-
+import { Interrupt } from '../emulator/cpu/interrupt';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 type opcodeBase = {
     opcode: number | undefined,
     mnemonic: string | undefined,
     operands: string | undefined,
-    isPrefixed: boolean
+    isPrefixed: boolean,
+    cost : number | undefined
 }
 
 export class Logger{
@@ -21,6 +24,8 @@ export class Logger{
     }
 
     private messages: Array<string>;
+    private timerRecord: Array<string>;
+    private interruptRecord: Array<string>;
     private message: string;
 
     private opcodesTrace: Array<{
@@ -30,10 +35,12 @@ export class Logger{
 
     constructor() {
         this.messages = new Array<string>();
+        this.timerRecord = new Array<string>();
         this.message = '';
-
+        this.interruptRecord = new Array<string>();
         this.opcodesTrace = new Array<{
             traceMessage: string, code: opcodeBase}>();
+            
     }
 
     configureLogging(stepVal : number) {
@@ -63,7 +70,7 @@ export class Logger{
     }
 
     publishLog() {
-        this.messages.push(this.message);
+        this.messages.push(`${this.message}\n`);
         this.message = '';
     }
 
@@ -72,24 +79,35 @@ export class Logger{
             this.publishLog();
         }
         let output = ''
-        this.messages.forEach(message => output += message+'\n');
-        fs.writeFileSync(path.resolve(__dirname,'..\\logOutput', "logOutput.yaml"), output);
+        this.messages.forEach(message => output += `${message}`);
+        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "logOutput.yaml"), output);
         this.messages = new Array<string>();
     }
 
-    logOpCode(opcode: number, isPrefixed = false) {
+    logTimer(cState : any, tick : number, tma: number) {
+        this.timerRecord.push(`clock: ${cState.clock.toString(16).padStart(8, '0')}` +
+            ` ticks: ${cState.ticks.toString(16).padStart(8, '0')} ` +
+            ` cycles: ${cState.cycles.toString(16).padStart(8, '0')} ` +
+            `timer: ${cState.timer.toString(16).padStart(8, '0')} ` +
+            `incrementRate: ${cState.incrementRate.toString(16).padStart(8, '0')} ` +
+            `cState: ${cState.cState.clockRate.toString(16).padStart(8,'0')} ` +
+            `TIMA: ${tick.toString().padStart(8, '0')}`+` TMA: ${tma.toString(16).padStart(8)}`);
+    }
+
+    logOpCode(opcode: number, isPrefixed = false, isInterrupt = false) {
         const hexOpcode = `0x${opcode.toString(16).toUpperCase()}`;
         const opCodeDetails =
             isPrefixed
                 ? Opcodes.cbprefixed.find(o => o.opcode == opcode)
                 : Opcodes.unprefixed.find(o => o.opcode == opcode);
         this.opcodesTrace.push({
-            traceMessage: `opcode ${hexOpcode} executed, ${opCodeDetails?.mnemonic}`,
+            traceMessage: `opcode ${hexOpcode} executed, ${opCodeDetails?.mnemonic}${isInterrupt ? '\n INTERRUPT EXECUTED' :''}`,
             code: {
                 opcode: opCodeDetails?.opcode,
                 mnemonic: opCodeDetails?.mnemonic,
                 operands: opCodeDetails?.operands.toString(),
-                isPrefixed : isPrefixed
+                isPrefixed: isPrefixed,
+                cost: opCodeDetails?.cycles[0]
             }
         });
     }
@@ -115,12 +133,40 @@ export class Logger{
             output += o.traceMessage + '\n'
         });
         uniqueOpcodes.forEach(u =>
-            uniqueOpcodeOutput += `0x${u.opcode?.toString(16).toLocaleUpperCase().padStart(2, '0')}: ${u.mnemonic}` + '\n');
+            uniqueOpcodeOutput += `0x${u.opcode?.toString(16).toLocaleUpperCase().padStart(2, '0')}: ${u.mnemonic?.padStart(5,' ')}` + `: ${u.cost?.toString().padStart(5,'0')}` + '\n');
         
         uniquePrefixedOpCodes.forEach(u =>
             uniquePrefixedOpcodeOutput += `0x${u.opcode?.toString(16).toLocaleUpperCase().padStart(2, '0')}: ${u.mnemonic}` + '\n');
-        fs.writeFileSync(path.resolve(__dirname,'..\\logOutput', "opcodeTrace.yaml"), output);
-        fs.writeFileSync(path.resolve(__dirname,'..\\logOutput', "uniqueOpCodes.yaml"), uniqueOpcodeOutput);
-        fs.writeFileSync(path.resolve(__dirname,'..\\logOutput', "uniquePrefixedOpCodes.yaml"), uniquePrefixedOpcodeOutput);
+        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "opcodeTrace.yaml"), output);
+        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "uniqueOpCodes.yaml"), uniqueOpcodeOutput);
+        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "uniquePrefixedOpCodes.yaml"), uniquePrefixedOpcodeOutput);
+    }
+
+    logTimerToFile() {
+        let output = '';
+        this.timerRecord.forEach(t => output += t + '\n');
+    
+        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)), '..\\logOutput', "timerOutput.yaml"), output);
+    }
+
+    public logInterrupt(interruptVector: Array<Interrupt>, IME : boolean, IE : number, IF : number) {
+        let interruptLog = '===============================';
+        interruptVector.forEach(i => {
+            interruptLog += `\n${i.name}, ${i.isEnabled ? 'enabled  ' : 'disabled'}, ${i.isRequested ? 'requested    ' : 'not requested'}`;
+        })
+        this.interruptRecord.push(interruptLog);
+        this.interruptRecord.push(`IME: ${IME}\t\tIE (FFFF): ${IE.toString(2).padStart(8,'0')}\t\tIF(FF0F): ${IF.toString(2).padStart(8,'0')}`);
+    }
+
+    public logInterruptsToFile() {
+        let output = '';
+        this.interruptRecord.forEach(i => output += i + '\n');
+        
+        // fs.writeFileSync(path.resolve(___dirname, '..\\logOutput', "interruptOutput.yaml"), output);
+        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)), '..\\logOutput', "interruptOutput.yaml"), output);
+    }
+
+    public logToConsole(message: string) {
+        console.log(message);
     }
 }
