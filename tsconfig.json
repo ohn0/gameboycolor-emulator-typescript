@@ -6,7 +6,8 @@
         "moduleResolution": "node",
         "allowSyntheticDefaultImports": true,
         "resolveJsonModule": true,
-        "esModuleInterop": true
+        "esModuleInterop": true,
+        "module": "es2022"
     },
     "ts-node": {
         "transpileOnly": true,
