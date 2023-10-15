@@ -19,7 +19,7 @@ export class RAM{
 
 
     constructor(mbc: iMBC) {
-        this.ram = new Uint8Array(0xFFFF);
+        this.ram = new Uint8Array(0x10000);
         this.mbc = mbc;
         let idx = 0;
         this.mbc.initialBank.romBank.forEach(x => {
