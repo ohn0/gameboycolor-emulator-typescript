@@ -1,21 +1,20 @@
 export class counter {
-    private resetValue: number;
-    private counter: number;
+    private resetValue!: number;
     private _interruptTriggered = false;
 
     constructor(modulo = 0) {
-        this.resetValue = modulo;
-        this.counter = 0;
+        this.updateModulo(modulo);
         this.interruptTriggered = false;
     }
 
-    public tick() {
-        this.counter++;
+    public tick(value : number) : number {
+        value++;
         this.interruptTriggered = false;
-        if (this.counter > 0xFF) {
-            this.counter = this.resetValue;
+        if (value > 0xFF) {
+            value = this.resetValue;
             this.interruptTriggered = true;
         }
+        return value;
     }
 
     public get interruptTriggered(): boolean {
@@ -23,5 +22,9 @@ export class counter {
     }
     public set interruptTriggered(value: boolean) {
         this._interruptTriggered = value;
+    }
+
+    public updateModulo(modulo: number) {
+        this.resetValue = modulo;
     }
 }
