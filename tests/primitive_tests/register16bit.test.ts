@@ -11,7 +11,7 @@ describe('register16bit testing', () => {
 });
 
 describe('HiLoRegister testing', () => {
-    const aHiLo = new HiLoRegister(new Register8bit(0xAA), new Register8bit(0xBB), "AB Register");
+    const aHiLo = new HiLoRegister(new Register8bit(0xAA, "A"), new Register8bit(0xBB, "B"), "AB Register");
 
     test('Hi and Lo registers are configured on initialization', () => {
         expect(aHiLo.HiRegister).toBe(0xAA);

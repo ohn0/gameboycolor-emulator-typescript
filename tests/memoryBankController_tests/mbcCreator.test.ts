@@ -7,7 +7,7 @@ import { MBC3 } from '../../emulator/MemoryBankControllers/MBC3';
 import * as path from 'path';
 import { RomLoader } from '../../emulator/romLoader';
 
-const gameData = RomLoader.load(path.resolve(__dirname, '..\\..', 'loz_MBC1.gb'));
+const gameData = RomLoader.load(path.resolve(__dirname, "..\\resources", 'loz_MBC1.gb'));
 
 describe('MBC creator testing', () => {
     test('mbcCreator creates MBC0 when passed in MBC0 key', () => {

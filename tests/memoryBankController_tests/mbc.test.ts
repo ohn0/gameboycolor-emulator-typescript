@@ -7,7 +7,8 @@ describe('Memory Bank Controller testing', () => {
     test('MBC1 loads game file', () => {
         const mbc1: MBC1 = new MBC1();
         mbc1.configure(RomLoader
-            .load(path.resolve(__dirname, '..\\..', 'loz_MBC1.gb')));
+            .load(path.resolve(__dirname, "..\\resources", 'loz_MBC1.gb')));
+            // path.resolve(__dirname, "..\\resources", 'loz_MBC1.gb')
         expect(mbc1.banks.length).not.toBe(0);
         let validBanks = 0;
         mbc1.banks.forEach(bank => {

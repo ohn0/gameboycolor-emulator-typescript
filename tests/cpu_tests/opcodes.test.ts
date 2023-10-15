@@ -412,7 +412,11 @@ function setPcValue(cpu: CPU, pcvalue: number): void{
 }
 
 function setRamValue16bit(value: number, pcValue: number): void {
-    cpu.configureRamValue(value & 0xFF, pcValue);
-    cpu.configureRamValue(value >> 8, pcValue+1);
+    // cpu.configureRamValue(value & 0xFF, pcValue);
+    // cpu.configureRamValue(value >> 8, pcValue+1);
+    // cpu.configureProgramCounter(pcValue);
+
+    cpu.writeMemory(value >> 8, pcValue);
+    cpu.writeMemory(value & 0xFF, pcValue+1);
     cpu.configureProgramCounter(pcValue);
 }
