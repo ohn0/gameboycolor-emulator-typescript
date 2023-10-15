@@ -1,3 +1,4 @@
+import { Logger } from '../../logger/logger';
 import { Uint8 } from './../../primitives/uint8';
 import { Interrupt } from './interrupt';
 export class InterruptHandler{
@@ -6,6 +7,7 @@ export class InterruptHandler{
     private interruptEnableFlag: Uint8;
     private interruptFlag: Uint8;
     private _masterInterruptFlag = false;
+    private logger: Logger;
     
     public get masterInterruptFlag() {
         return this._masterInterruptFlag;
@@ -14,8 +16,12 @@ export class InterruptHandler{
         this._masterInterruptFlag = value;
     }
     
-    constructor() {
-        //...
+    constructor(logger: Logger) {
+        if (logger != undefined) {
+            this.logger = logger;
+        } else {
+            this.logger = new Logger();
+        }
         this.interruptEnableFlag = new Uint8(0);
         this.interruptFlag = new Uint8(0);
         this.interruptVector = new Array<Interrupt>();
@@ -30,8 +36,9 @@ export class InterruptHandler{
     }
     
     public configure(IEFlag: number, IF: number) : void {
-        this.interruptEnableFlag.value = IEFlag;
-        this.interruptFlag.value = IF;
+        this.interruptEnableFlag.value = (IEFlag & 0x1F);
+        this.interruptFlag.value = (IF & 0x1F);
+        this.mapToVector();
     }
 
     public enableInterrupt(interruptKey: string) {
@@ -51,7 +58,7 @@ export class InterruptHandler{
     public requestInterrupt(interruptKey: string): void {
         const interrupt = this.interruptVector.find(i => i.name == interruptKey);
         if (interrupt == undefined) throw ("Undefined interrupt encountered.");
-        this.interruptEnableFlag.value |= (1 << interrupt.bitIndex);
+        this.interruptFlag.value |= (1 << interrupt.bitIndex);
         interrupt.setRequested();
     }
 
@@ -60,15 +67,32 @@ export class InterruptHandler{
     }
 
     public handle(): number {
+        // this.logger.logInterrupt(this.interruptVector, this.masterInterruptFlag, this.interruptEnableFlag.value, this.interruptFlag.value);
         if (!this.masterInterruptFlag) return -1;
-        this.masterInterruptFlag = false;
-        const highestPriorityInterrupt = this.interruptVector.find(i => i.isRequested);
+        const highestPriorityInterrupt = this.interruptVector.find(i => (i.isEnabled && i.isRequested));
         if (highestPriorityInterrupt != undefined) {
             highestPriorityInterrupt.unsetRequested();
-            this.interruptEnableFlag.value &= (~(1 << highestPriorityInterrupt.bitIndex));
+            // this.interruptEnableFlag.value &= (0xFF & (~(1 << highestPriorityInterrupt.bitIndex)));
+            this.interruptFlag.value &= (0xFF & (~(1 << highestPriorityInterrupt.bitIndex)));
+            this.masterInterruptFlag = false;
             return highestPriorityInterrupt.routineLocation;
         }
 
         return -1;
     }
+
+    public resetInterrupts(interruptState : number) {
+        this.interruptEnableFlag.value = interruptState;
+        this.masterInterruptFlag = true;
+    }
+
+    private mapToVector(): void {
+        const IF = this.interruptFlag;
+        const IE = this.interruptEnableFlag;
+        this.interruptVector.forEach(interrupt => {
+            interrupt.isEnabled = ((IE.value >> interrupt.bitIndex) & 1) != 0;
+            interrupt.isRequested = ((IF.value >> interrupt.bitIndex) & 1) != 0;
+        })
+    }
+
 }
