@@ -1,4 +1,4 @@
-import { OPCODE_COST_12, OPCODE_COST_16, OPCODE_COST_8 } from './constants';
+import { OPCODE_COST_12, OPCODE_COST_16 } from './constants';
 import { CPU } from './cpu';
 import { Register8bit } from './register';
 
@@ -117,9 +117,8 @@ export class BitwiseOperationSolver{
     private decomposeKey(key: number) {
         this.operation = key >> 4;
         this.operand = key & 0x0F;
-        // console.log(`decomposed ${key.toString(16)} into operation operand ${this.operation.toString(16)}, ${this.operand.toString(16)}`)
         if (this.operand == 0x6 || this.operand == 0xE) {
-            const value = this.cpu.read16BitRegister("HL").getRegister();
+            const value = this.cpu.readMemory(this.cpu.read16BitRegister("HL").getRegister());
             this.operandsMap[0x6].value = value;
             this.operandsMap[0xE].value = value;
             this.isMemoryOperation = true;
@@ -129,19 +128,18 @@ export class BitwiseOperationSolver{
     }
 
     executeOperation(key: number) {
-        // console.log(`executing a bitwise CB operation with key ${key.toString(16)}`);
         this.isMemoryOperation = false;
         this.decomposeKey(key);
         this.operationsMap[this.operation]();
-        this.cpu.logger.logOpCode(key, true);
+        // this.cpu.logger.logOpCode(key, true);
         if (this.isMemoryOperation) {
             this.operationCost = this.operation >= 0x4 && this.operation <= 0x7
                 ? OPCODE_COST_12
                 : OPCODE_COST_16;
             this.cpu.writeMemory(this.register.value);
-            this.cpu.setOperationCost(this.operationCost);
+            // this.cpu.setOperationCost(this.operationCost);
         } else {
-            this.cpu.setOperationCost(OPCODE_COST_8);
+            // this.cpu.setOperationCost(OPCODE_COST_8);
         }
         this.cleanUp();
     }
@@ -219,7 +217,7 @@ export class BitwiseOperationSolver{
         const bitToTest = this.isOddOperation
             ? this.oddMap[this.operation]
             : this.evenMap[this.operation];
-        this.cpu.updateFlags(this.getBitState(bitToTest), false, true, undefined);
+        this.cpu.updateFlags(!this.getBitState(bitToTest), false, true, undefined);
     }
 
     private RES_N() {
