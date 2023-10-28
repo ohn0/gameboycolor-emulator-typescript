@@ -157,7 +157,17 @@ export class CPU {
         while (!this.isQuitting) {
             ticks++;
             globalTicks++;
-            
+            if (this.debugState) {
+                if (globalTicks > this.limit) { this.isQuitting = true; }
+                if (this.readMemory(0xFF02) == 0x81) { 
+                    this.writeMemory(0x00, 0xFF02);
+                    let outputChar = this.readMemory(0xFF01);
+                    if (outputChar == 32) {
+                        outputChar = 10;
+                    }
+                    testOutput += String.fromCharCode(outputChar);
+                }
+            }
             this.operationCostModified = false;
             this.logger.configureLogging(ticks);
             if (this.operationCost > 0) {
@@ -184,19 +194,13 @@ export class CPU {
                 this.push(this.PC);
                 this.configureProgramCounter(routineLocation);
             }
+
             if (this.debugState) {
-                if (globalTicks > this.limit) { this.isQuitting = true; }
-                if (this.readMemory(0xFF02) == 0x81) { 
-                    this.writeMemory(0x00, 0xFF02);
-                    let outputChar = this.readMemory(0xFF01);
-                    if (outputChar == 32) {
-                        outputChar = 10;
-                    }
-                    testOutput += String.fromCharCode(outputChar);
-                }
+                this.logState();
             }
+
             if (this.isHalting) {
-                if (ticks == this.limit) { this.isQuitting = true; }
+                if (globalTicks == this.limit) { this.isQuitting = true; }
                 this.isHalting = (this.interruptHandler.getInterruptFlag() & this.interruptHandler.getInterruptEnableFlag()) == 0;
                 if (this.isHalting) {
                     //if halting, continue halting
@@ -215,14 +219,14 @@ export class CPU {
             // this.logger.logOpCode(this.currentOpCode);
             this.opCodesLibrary[this.currentOpCode]();
             // this.logger.logTimer(this.clock.getClockState(), this.readMemory(0xff05), this.readMemory(0xff06));
-            this.clock.updateControlState(controlStates.getControlState(this.readMemory(0xFF07)));
+            // this.clock.updateControlState(controlStates.getControlState(this.readMemory(0xFF07)));
 
         }
         // this.logger.logString(testOutput);
         this.logger.logToConsole(testOutput);
         this.logger.logToFile();
-        this.logger.logOpCodesToFile(); 
-        this.logger.logTimerToFile();
+        // this.logger.logOpCodesToFile(); 
+        // this.logger.logTimerToFile();
         // this.logger.logInterruptsToFile();
     }
 
@@ -759,8 +763,10 @@ export class CPU {
             },
             0xFA: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
+                const msb = this.read8bitValueUsingPC();
+                const lsb = this.read8bitValueUsingPC();
                 this.A.value =
-                    this.readMemory(this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC()));
+                    this.readMemory(this.build16bitValue(msb, lsb));
             },
             0xCB: () => {
                 const key = this.read8bitValueUsingPC();
@@ -1056,8 +1062,9 @@ export class CPU {
     private addFromMemory(isCarry = false) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
         const carryFlagValue = isCarry ? +this.flags["C"] : 0;
-        const carryState = this.getCarryStatus(this.readMemory(this.HL.getRegister()) + carryFlagValue, false, true);
-        this.A.value += (carryFlagValue + this.readMemory(this.HL.getRegister()))
+        const hlValue = this.readMemory(this.HL.getRegister());
+        const carryState = this.getCarryStatus(hlValue + carryFlagValue, false, true);
+        this.A.value += (carryFlagValue + hlValue)
         this.updateFlags(this.A.value == 0, false, ...carryState)
     }
 
@@ -1241,4 +1248,27 @@ export class CPU {
         this.RAM.write(0xFF44, 0x90);
     }
 
+
+    private logState() {
+        this.logger.logRegister8bit(this.A);
+        this.logger.logRegister8bit(this.F);
+        this.logger.logRegister8bit(this.B);
+        this.logger.logRegister8bit(this.C);
+        this.logger.logRegister8bit(this.D);
+        this.logger.logRegister8bit(this.E);
+        this.logger.logRegister8bit(this.H);
+        this.logger.logRegister8bit(this.L);
+
+        this.logger.logRegister16bit(this.AF);
+        this.logger.logRegister16bit(this.BC);
+        this.logger.logRegister16bit(this.DE);
+        this.logger.logRegister16bit(this.SP);
+        this.logger.logRegister16bit(this.PC);
+        this.logger.logString('(');
+        this.logger.logMemory(this.readMemory(this.readPC()));
+        this.logger.logMemory(this.readMemory(this.readPC()+1));
+        this.logger.logMemory(this.readMemory(this.readPC()+2));
+        this.logger.logMemory(this.readMemory(this.readPC() + 3));
+        this.logger.logString(` TIMA : ${this.readMemory(0xFF05)}\n`);
+    }
 }

@@ -25,13 +25,13 @@ export class clock{
     }
 
     public tick(currentTick: number): boolean {
-        if (this.singleSecondCounter > this.FREQUENCY) {
-            if (Date.now() - this.initialTime > 1000) {
-                this.singleSecondCounter = 0;
-                this.TACcounter = 0;
-            }
-            return false;
-        }
+        // if (this.singleSecondCounter > this.FREQUENCY) {
+        //     if (Date.now() - this.initialTime > 1000) {
+        //         this.singleSecondCounter = 0;
+        //         this.TACcounter = 0;
+        //     }
+        //     return false;
+        // }
         this.singleSecondCounter++;
         this.ticks++;
         if (this.ticks % 4 == 0) {
