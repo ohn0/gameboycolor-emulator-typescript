@@ -158,6 +158,7 @@ export class BitwiseOperationSolver{
         const MSB = this.getMSB() == 1;
         this.register.value <<= 1;
         this.setLSB(MSB);
+        this.cpu.wait();
         this.cpu.updateFlags(this.register.value == 0, false, false, MSB);
     }
 
@@ -167,6 +168,7 @@ export class BitwiseOperationSolver{
         this.register.value |= (0x80);
         // this.register.value &= ~(LSB << 8);
         this.setMSB(LSB == 1);
+        this.cpu.wait();
         this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
 
@@ -174,6 +176,7 @@ export class BitwiseOperationSolver{
         const MSB = this.getMSB();
         this.register.value <<= 1;
         this.setLSB(this.cpu.readFlag("C"));
+        this.cpu.wait();
         this.cpu.updateFlags(this.register.value == 0, false, false, MSB == 1);
     }
 
@@ -181,6 +184,7 @@ export class BitwiseOperationSolver{
         const LSB = this.getLSB();
         this.register.value >>= 1;
         this.setMSB(this.cpu.readFlag("C"));
+        this.cpu.wait();
         this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
 
@@ -188,6 +192,7 @@ export class BitwiseOperationSolver{
         const MSB = this.getMSB();
         this.register.value <<= 1;
         this.setLSB(false);
+        this.cpu.wait();
         this.cpu.updateFlags(this.register.value == 0, false, false, MSB == 1);
     }
 
@@ -196,6 +201,7 @@ export class BitwiseOperationSolver{
         const LSB = this.getLSB();
         this.register.value >>= 1;
         this.setMSB(MSB == 1);
+        this.cpu.wait();
         this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
 
@@ -203,6 +209,7 @@ export class BitwiseOperationSolver{
         // this.register.value =
         //     (this.register.value & 0xF0) | (this.register.value & 0xF);
         this.register.value = ((this.register.value & 0xF) << 4) | ((this.register.value & 0xF0) >> 4)
+        this.cpu.wait();
         this.cpu.updateFlags(this.register.value == 0, false, false, false);
     }
 
@@ -210,6 +217,7 @@ export class BitwiseOperationSolver{
         const LSB = this.getLSB();
         this.register.value >>= 1;
         this.setMSB(false);
+        this.cpu.wait();
         this.cpu.updateFlags(this.register.value == 0, false, false, LSB == 1);
     }
 
@@ -217,6 +225,7 @@ export class BitwiseOperationSolver{
         const bitToTest = this.isOddOperation
             ? this.oddMap[this.operation]
             : this.evenMap[this.operation];
+        this.cpu.wait();
         this.cpu.updateFlags(!this.getBitState(bitToTest), false, true, undefined);
     }
 
@@ -224,7 +233,7 @@ export class BitwiseOperationSolver{
         const bitToReset = this.isOddOperation
             ? this.oddMap[this.operation - 4]
             : this.evenMap[this.operation - 4];
-        
+        this.cpu.wait();
         this.register.value &= ~(1 << bitToReset);
         
     }
@@ -233,7 +242,7 @@ export class BitwiseOperationSolver{
         const bitToSet = this.isOddOperation
             ? this.oddMap[this.operation - 8]
             : this.evenMap[this.operation - 8];
-        
+        this.cpu.wait();
         this.register.value |= (1 << bitToSet);
     }
 

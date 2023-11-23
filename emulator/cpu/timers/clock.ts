@@ -11,9 +11,6 @@ export class clock{
     private dividerUpdater: () => void;
     private counterUpdater: () => void;
     public controlState!: controlState;
-    private singleSecondCounter: number;
-    private initialTime: number;
-    private TACcounter: number;
     private TACmodified: boolean;
     constructor(divHandler : () => void, counterHandler : () => void, cState : controlState) {
         this.clock = this.ticks = this.cycles = this.timer = 0;
@@ -21,7 +18,6 @@ export class clock{
         this.counterUpdater = counterHandler;
         this.TACmodified = false;
         this.updateControlState(cState);
-        this.singleSecondCounter = this.initialTime = this.TACcounter = 0;
     }
 
     public tick(currentTick: number): boolean {
@@ -32,7 +28,7 @@ export class clock{
         //     }
         //     return false;
         // }
-        this.singleSecondCounter++;
+        // this.singleSecondCounter++;
         this.ticks++;
         if (this.ticks % 4 == 0) {
             this.cycles++;
@@ -41,10 +37,8 @@ export class clock{
         if (this.ticks % 256 == 0) this.dividerUpdater();
         if ((this.cycles) % (this.TIMAIncrementRateCycles) == 0
             && this.controlState.isRunning
-            && this.TACcounter < this.controlState.clockRate
             && !this.TACmodified) {
             this.counterUpdater();
-            this.TACcounter++;
             this.TACmodified = true;
         }
         return true;
@@ -54,6 +48,10 @@ export class clock{
         this.controlState = updatedState;
         this.TIMAIncrementRateTicks = this.FREQUENCY / this.controlState.clockRate;
         this.TIMAIncrementRateCycles = this.TIMAIncrementRateTicks / 4;
+    }
+
+    public setTicks(tickValue: number) {
+        this.ticks = tickValue;
     }
 
     public getClockState():

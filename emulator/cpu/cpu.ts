@@ -3,7 +3,7 @@ import { InterruptHandler } from './InterruptHandler';
 import { counter } from './timers/counter';
 import { divider } from './timers/divider';
 import { clock } from './timers/clock';
-import { INTERRUPT_SOURCES, OPCODE_COSTS_T_STATES } from './constants';
+import { INTERRUPT_SOURCES, OPCODE_COSTS_T_STATES, OPCODE_COST_8 } from './constants';
 import { BitwiseOperationSolver } from './bitwiseOperationSolver';
 import { Register8bit } from './register';
 import { FlagRegister } from "./FlagRegister";
@@ -52,6 +52,8 @@ export class CPU {
     private enableInterruptsInNcycles = 0;
     private isHalting = false;
     private currentOpCode = 0;
+    private globalTicks = 0;
+    private currentOperationCost = 0;
     logger: Logger;
 
     debugState: boolean;
@@ -149,37 +151,26 @@ export class CPU {
     }
 
     async loop() {
-        let globalTicks = 0;
-        let ticks  =  0;
+        this.globalTicks = 0;
         let testOutput = '';
         let routineLocation = -1;
         this.operationCost = 0;
         while (!this.isQuitting) {
-            ticks++;
-            globalTicks++;
-            if (this.debugState) {
-                if (globalTicks > this.limit) { this.isQuitting = true; }
-                if (this.readMemory(0xFF02) == 0x81) { 
-                    this.writeMemory(0x00, 0xFF02);
-                    let outputChar = this.readMemory(0xFF01);
-                    if (outputChar == 32) {
-                        outputChar = 10;
-                    }
-                    testOutput += String.fromCharCode(outputChar);
-                }
-            }
+            this.globalTicks++;
             this.operationCostModified = false;
-            this.logger.configureLogging(ticks);
-            if (this.operationCost > 0) {
-                if (this.clock.tick(ticks)){
-                    this.updateTimers();
-                    this.operationCost--;
-                }
+            this.logger.configureLogging(this.globalTicks);
+            if (this.currentOperationCost != this.operationCost) {
+                this.clock.tick(0)
+                this.updateTimers();
+                // this.operationCost--;
+                this.currentOperationCost++;
                 continue;
             }
+            this.currentOperationCost = this.operationCost = 0;
             this.interruptHandler.configure(this.readMemory(0xFFFF), this.readMemory(0xFF0F));
 
             //EI logic
+            // shouldn't this be set to 8???
             if (this.enableInterruptsInNcycles > 0) {
                 this.enableInterruptsInNcycles--;
                 if (this.enableInterruptsInNcycles == 0) {
@@ -196,11 +187,20 @@ export class CPU {
             }
 
             if (this.debugState) {
-                this.logState();
+                // this.logState();
+                if (this.globalTicks > this.limit) { this.isQuitting = true; }
+                if (this.readMemory(0xFF02) == 0x81) { 
+                    this.writeMemory(0x00, 0xFF02);
+                    let outputChar = this.readMemory(0xFF01);
+                    if (outputChar == 32) {
+                        outputChar = 10;
+                    }
+                    testOutput += String.fromCharCode(outputChar);
+                }
             }
 
             if (this.isHalting) {
-                if (globalTicks == this.limit) { this.isQuitting = true; }
+                if (this.globalTicks == this.limit) { this.isQuitting = true; }
                 this.isHalting = (this.interruptHandler.getInterruptFlag() & this.interruptHandler.getInterruptEnableFlag()) == 0;
                 if (this.isHalting) {
                     //if halting, continue halting
@@ -216,19 +216,20 @@ export class CPU {
             }
 
             this.currentOpCode = this.read8bitValueUsingPC();
-            // this.logger.logOpCode(this.currentOpCode);
             this.opCodesLibrary[this.currentOpCode]();
+
             // this.logger.logTimer(this.clock.getClockState(), this.readMemory(0xff05), this.readMemory(0xff06));
             // this.clock.updateControlState(controlStates.getControlState(this.readMemory(0xFF07)));
 
         }
         // this.logger.logString(testOutput);
         this.logger.logToConsole(testOutput);
-        this.logger.logToFile();
+        // this.logger.logToFile();
         // this.logger.logOpCodesToFile(); 
         // this.logger.logTimerToFile();
         // this.logger.logInterruptsToFile();
     }
+
 
     private populateOpcodes() {
         this.opCodesLibrary = {
@@ -282,7 +283,9 @@ export class CPU {
             0x06: () => this.loadRegisterImmediate(this.B),
             0x16: () => this.loadRegisterImmediate(this.D),
             0x26: () => this.loadRegisterImmediate(this.H),
-            0x36: () => this.loadMemoryImmediate(this.HL.getRegister()),
+            0x36: () => {
+                this.loadMemoryImmediate(this.HL.getRegister())
+            },
 
             0x07: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
@@ -343,14 +346,22 @@ export class CPU {
             0x29: () => this.add_HL(this.HL),
             0x39: () => this.add_HL(this.SP),
 
-            0x0A: () => this.loadAccumulator(this.readMemory(this.BC.getRegister())),
-            0x1A: () => this.loadAccumulator(this.readMemory(this.DE.getRegister())),
+            0x0A: () => {
+                this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+                this.loadAccumulator(this.readMemory(this.BC.getRegister(), false))
+            },
+            0x1A: () => {
+                this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+                this.loadAccumulator(this.readMemory(this.DE.getRegister(), false))
+            },
             0x2A: () => {
-                this.loadAccumulator(this.readMemory(this.HL.getRegister()));
+                this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+                this.loadAccumulator(this.readMemory(this.HL.getRegister(), false));
                 this.increment_16(this.HL);
             },
             0x3A: () => {
-                this.loadAccumulator(this.readMemory(this.HL.getRegister()));
+                this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+                this.loadAccumulator(this.readMemory(this.HL.getRegister(), false));
                 this.decrement_16(this.HL);
             },
 
@@ -490,7 +501,10 @@ export class CPU {
             0x4E: () => this.loadRegisterMemory(this.C),
             0x5E: () => this.loadRegisterMemory(this.E),
             0x6E: () => this.loadRegisterMemory(this.L),
-            0x7E: () => this.loadAccumulator(this.readMemory(this.HL.getRegister())),
+            0x7E: () => {
+                this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+                this.loadAccumulator(this.readMemory(this.HL.getRegister(), false))
+            },
 
             0x4F: () => this.loadRegisterRegister(this.C, this.A),
             0x5F: () => this.loadRegisterRegister(this.E, this.A),
@@ -531,11 +545,11 @@ export class CPU {
             0x96: () => this.subtractFromMemory(),
             0xA6: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-                this.and(this.readMemory(this.HL.getRegister()));
+                this.and(this.readMemory(this.HL.getRegister(), false));
             },
             0xB6: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-                this.or(this.readMemory(this.HL.getRegister()));
+                this.or(this.readMemory(this.HL.getRegister(), false));
             },
 
             0x87: () => this.aggregatedAdd(this.A.value),
@@ -575,19 +589,19 @@ export class CPU {
             
             0x8E: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-                this.aggregatedAdd(this.readMemory(this.HL.getRegister()), true)
+                this.aggregatedAdd(this.readMemory(this.HL.getRegister(), false), true)
             },
             0x9E: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8)
-                this.subtract(this.readMemory(this.HL.getRegister()), true);
+                this.subtract(this.readMemory(this.HL.getRegister(), false), true);
             },
             0xAE: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-                this.xor(this.readMemory(this.HL.getRegister()))
+                this.xor(this.readMemory(this.HL.getRegister(), false))
             },
             0xBE: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
-                this.cmp(this.readMemory(this.HL.getRegister()))
+                this.cmp(this.readMemory(this.HL.getRegister(), false))
             },
             
             0x8F: () => this.aggregatedAdd(this.A.value,true),
@@ -615,6 +629,7 @@ export class CPU {
 
             0xE0: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
+                this.wait();
                 const value = this.read8bitValueUsingPC();
                 this.writeMemory(this.A.value, 0xFF00 + value);
             },
@@ -622,7 +637,8 @@ export class CPU {
             0xF0: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
                 const value = this.read8bitValueUsingPC();
-                this.A.value = this.readMemory(0xFF00 + value);
+                this.wait();
+                this.A.value = this.readMemory(0xFF00 + value, false);
             },
 
             0xC1: () => {
@@ -656,7 +672,8 @@ export class CPU {
             },
 
             0xF2: () => {
-                this.loadAccumulator(this.readMemory(0xFF00 + this.C.value));
+                this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+                this.loadAccumulator(this.readMemory(0xFF00 + this.C.value, false));
             },
 
             0xC3: () => {
@@ -735,7 +752,7 @@ export class CPU {
             0xD9: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
                 this.conditionalRet(true);
-                this.interruptHandler.resetInterrupts(this.readMemory(0xFFFF));
+                this.interruptHandler.resetInterrupts(this.readMemory(0xFFFF, false));
             },
 
             0xE9: () => {
@@ -758,6 +775,8 @@ export class CPU {
 
             0xEA: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
+                this.wait();
+                this.wait();
                 this.writeMemory(this.A.value,
                     this.build16bitValue(this.read8bitValueUsingPC(), this.read8bitValueUsingPC()));
             },
@@ -765,8 +784,10 @@ export class CPU {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
                 const msb = this.read8bitValueUsingPC();
                 const lsb = this.read8bitValueUsingPC();
+                this.wait();
+                this.wait();
                 this.A.value =
-                    this.readMemory(this.build16bitValue(msb, lsb));
+                    this.readMemory(this.build16bitValue(msb, lsb), false);
             },
             0xCB: () => {
                 const key = this.read8bitValueUsingPC();
@@ -781,6 +802,7 @@ export class CPU {
                     operationCost = OPCODE_COSTS_T_STATES.OPCODE_COST_8;
                 }
                 this.setOperationCost(operationCost);
+                this.wait();
                 this.bitwiseSolver.executeOperation(key);
             },
 
@@ -869,21 +891,23 @@ export class CPU {
         this.opCodesLibrary[code]();
     }
 
-    readMemory(address: number): number {
-        return this.RAM.read(address).value;
+    readMemory(address: number, isFreeRead = true): number {
+        if (isFreeRead) return this.RAM.read(address).value;
+        const readCost = 4;
+        const value = this.RAM.read(address).value;
+        return value;
     }
 
     writeMemory(value: number, address = -1) {
         if (address == -1) {
             address = this.HL.getRegister();
         }
-        else if (address == 0xFF06) {
-            this.counter.updateModulo(value);
-        }
         else if (address == 0xFF04) {
             value = 0;
         }
-
+        else if (address == 0xFF06) {
+            this.counter.updateModulo(value);
+        }
         this.RAM.write(address, value);
 
         if (address == 0xFF07) {
@@ -912,8 +936,10 @@ export class CPU {
         this.writeMemory(value, address);
     }
 
-    read8bitValueUsingPC(): number {
-        return this.readMemory(this.PC.getCounterValue());
+    read8bitValueUsingPC(isFreeRead = true): number {
+        // if(isFreeRead) return this.readMemory(this.PC.getCounterValue());
+        const value = this.readMemory(this.PC.getCounterValue());
+        return value;
     }
 
     set8bitValueUsingPC(value: number): void {
@@ -957,6 +983,7 @@ export class CPU {
 
     private loadMemoryImmediate(address: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
+        this.wait();
         this.writeMemory(this.read8bitValueUsingPC(), address);
     }
 
@@ -1003,7 +1030,9 @@ export class CPU {
     private incrementMemory(memoryLocation: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
         const newValue = this.readMemory(memoryLocation) + 1;
+        this.wait();
         this.writeMemory(newValue, memoryLocation);
+        this.wait();
         this.updateFlags(this.readMemory(memoryLocation) == 0, false, this.halfCarryOccurs(newValue-1, 1), undefined);
     }
     
@@ -1016,8 +1045,10 @@ export class CPU {
 
     private decrementMemory(memoryLocation: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
-        const newValue = this.readMemory(memoryLocation)-1;
+        const newValue = this.readMemory(memoryLocation) - 1;
+        this.wait();
         this.writeMemory(newValue, memoryLocation);
+        this.wait();
         this.updateFlags(newValue == 0, true, this.halfCarryOccurs(newValue+1, 1, false), undefined);
     }
 
@@ -1242,6 +1273,16 @@ export class CPU {
 
         // return isAdd ? (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10
         //              : ((((((a & 0xf) - (b & 0xf)) % 0x10) + 0x10) % 0x10) & 0x10) == 0x10
+    }
+
+    public wait() {
+        const readCost = 4;
+        for (let i = 0; i < readCost; i++){
+            if (this.clock.tick(0)) {
+                // this.operationCost--;
+                this.currentOperationCost++;
+            }
+        }
     }
 
     DebugAlwaysReturnVBlank() {
