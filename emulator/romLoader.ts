@@ -6,7 +6,7 @@ export class RomLoader{
     static load(fileName: string, isStandAlone = false): Uint8Array {
         let rom: Buffer;
         if (isStandAlone) {
-            rom = fs.readFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..', fileName));
+            rom = fs.readFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)), '..', fileName));
         }
         else {
             rom = fs.readFileSync(path.resolve(__dirname,'..', fileName));            

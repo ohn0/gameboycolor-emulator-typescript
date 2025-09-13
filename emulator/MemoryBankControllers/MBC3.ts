@@ -1,6 +1,19 @@
 import { Bank } from './bank';
 import { iMBC } from './iMBC';
+import { mbcCreator } from './mbcCreator';
 export class MBC3 implements iMBC{
+    cartridge!: Uint8Array;
+    canUseRam(): boolean {
+        throw new Error('Method not implemented.');
+    }
+    writeToRam(address: number, value: number): void {
+        throw new Error('Method not implemented.');
+    }
+    readFromRam(address: number): number {
+        throw new Error('Method not implemented.');
+    }
+    RamSize!: number;
+    RomSize!: number;
     initialBank!: Bank;
     banks!: Bank[];
     private _bankWasChanged!: boolean;
@@ -11,6 +24,8 @@ export class MBC3 implements iMBC{
         this._bankWasChanged = value;
     }
     configure(gameData: Uint8Array): void {
+        this.RomSize = mbcCreator.getRomSize(gameData[0x148]);
+        this.RamSize = mbcCreator.getRamSize(gameData[0x149]);
         this.banks = new Array<Bank>(125);
 
     }
@@ -25,4 +40,7 @@ export class MBC3 implements iMBC{
         throw new Error('Method not implemented.');
     }
 
+    interceptRead(address: number): number {
+        throw new Error('Method not implemented.');
+    }
 }

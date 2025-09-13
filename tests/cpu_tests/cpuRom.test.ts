@@ -22,7 +22,7 @@ const opRrTests = '09-op r,r.gb';
 const resourceLocation = "..\\resources";
 
 function initCpu(testName : string, loopLimit : number) : CPU {
-    const loadedRom = mbcCreator.getMBC(mbcCreator.MBC0,
+    const loadedRom = mbcCreator.getMBC(
         RomLoader.load(path.resolve(__dirname, resourceLocation, testName)));
     const ram = new RAM(loadedRom);
     const cpu = new CPU(ram, true);
@@ -39,7 +39,7 @@ describe(`blargg tests`, () => {
     //create CPU and link created RAM to it
     //start looping
 
-    loadedRom = mbcCreator.getMBC(mbcCreator.MBC0,
+    loadedRom = mbcCreator.getMBC(
         // RomLoader.load(path.resolve(__dirname, resourceLocation, specialTests)));
         // RomLoader.load(path.resolve(__dirname, resourceLocation, interruptTests)));
         // RomLoader.load(path.resolve(__dirname, resourceLocation, opSpTests)));
@@ -52,7 +52,7 @@ describe(`blargg tests`, () => {
 
 
     test(`run blargg tests`, () => {
-        let cpu = initCpu(opRrTests, 2500000);
+        const cpu = initCpu(opRrTests, 2500000);
         cpu.loop();
         // let cpu = initCpu(miscTests, 400000);
         // cpu.loop();

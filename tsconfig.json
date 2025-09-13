@@ -2,12 +2,14 @@
     "compilerOptions": {
         "strict": true,
         "target": "ES6",
-        "outDir": "output",
+        "outDir": "build/",
         "moduleResolution": "node",
         "allowSyntheticDefaultImports": true,
         "resolveJsonModule": true,
         "esModuleInterop": true,
-        "module": "es2022"
+        "module": "es2022",
+        "sourceMap": true
+
     },
     "ts-node": {
         "transpileOnly": true,

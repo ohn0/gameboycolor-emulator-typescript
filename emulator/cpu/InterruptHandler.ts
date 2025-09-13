@@ -19,8 +19,6 @@ export class InterruptHandler{
     constructor(logger: Logger) {
         if (logger != undefined) {
             this.logger = logger;
-        } else {
-            this.logger = new Logger();
         }
         this.interruptEnableFlag = new Uint8(0);
         this.interruptFlag = new Uint8(0);
@@ -37,6 +35,16 @@ export class InterruptHandler{
     
     public configure(IEFlag: number, IF: number) : void {
         this.interruptEnableFlag.value = (IEFlag & 0x1F);
+        this.interruptFlag.value = (IF & 0x1F);
+        this.mapToVector();
+    }
+
+    public configureInterruptEnableFlag(IEFlag: number) {
+        this.interruptEnableFlag.value = (IEFlag & 0x1F);
+        this.mapToVector();
+    }
+
+    public configureInterruptFlag(IF: number) {
         this.interruptFlag.value = (IF & 0x1F);
         this.mapToVector();
     }

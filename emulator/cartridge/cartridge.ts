@@ -21,7 +21,7 @@ export class Cartridge{
 
     constructor(filename: string) {
         this.gameData = RomLoader.load(filename);
-        this.mbc = mbcCreator.getMBC(this.getMbcConfiguration().mbcType, this.gameData);
+        this.mbc = mbcCreator.getMBC(this.gameData);
     }
 
     private getMbcConfiguration(): { mbcType: number, romSize: number, ramSize: number } {

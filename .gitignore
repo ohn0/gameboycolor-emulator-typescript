@@ -11,3 +11,4 @@ output
 tests/resources
 logOutput/
 resources/
+build/

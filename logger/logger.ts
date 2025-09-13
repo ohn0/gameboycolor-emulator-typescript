@@ -27,20 +27,26 @@ export class Logger{
     private timerRecord: Array<string>;
     private interruptRecord: Array<string>;
     private message: string;
-
+    private messagesIndex: number;
+    private filename: string;
     private opcodesTrace: Array<{
         traceMessage: string,
         code: opcodeBase
     }>;
 
-    constructor() {
-        this.messages = new Array<string>();
+    constructor(filename = "") {
+        this.messages = new Array<string>(0x10000);
+        this.messagesIndex = 0;
         this.timerRecord = new Array<string>();
         this.message = '';
         this.interruptRecord = new Array<string>();
         this.opcodesTrace = new Array<{
-            traceMessage: string, code: opcodeBase}>();
-            
+            traceMessage: string, code: opcodeBase
+        }>();
+        if (filename != "") {
+            this.filename = filename;   
+            fs.unlink(path.resolve(dirname(fileURLToPath(import.meta.url)), `..\\${filename}`, `${filename}.yaml`), (err) => {console.log('error removing file.')});
+        }
     }
 
     configureLogging(stepVal : number) {
@@ -48,25 +54,37 @@ export class Logger{
     }
 
     logRegister8bit(r: Register8bit) {
-        this.message +=`${r.name.toLocaleUpperCase()}: ${r.value.toString(16).toLocaleUpperCase().padStart(2, '0')} `;
+        this.logString(`${r.name.toLocaleUpperCase()}: ${r.value.toString(16).toLocaleUpperCase().padStart(2, '0')} `)
+        // this.message +=`${r.name.toLocaleUpperCase()}: ${r.value.toString(16).toLocaleUpperCase().padStart(2, '0')} `;
     }
 
     logRegister16bit(r: HiLoRegister) {
-        this.message += `${r.registerName}: ${r.getRegister().toString(16).toLocaleUpperCase().padStart(4, '0')} `;
+        this.logString(`${r.registerName}: ${r.getRegister().toString(16).toLocaleUpperCase().padStart(4, '0')} `)
+        // this.message += `${r.registerName}: ${r.getRegister().toString(16).toLocaleUpperCase().padStart(4, '0')} `;
     }
 
     logMemory(value: number) {
-        this.message += `${value.toString(16).toLocaleUpperCase().padStart(2, '0')} `;
+        this.logString(`${value.toString(16).toLocaleUpperCase().padStart(2, '0')} `)
+        // this.message += `${value.toString(16).toLocaleUpperCase().padStart(2, '0')} `;
     }
 
     logArray(value: Array<number>) {
+        // let z: string = value.forEach(n => z += `${n.toString(16).toLocaleUpperCase().padStart(2, '0')}`);
+        // this.messages.push(`(${z})`);
+
         this.message += '(';
         value.forEach(n => this.message+=`${n.toString(16).toLocaleUpperCase().padStart(2,'0')}`)
         this.message += ')';
     }
 
     logString(value: string) {
-        this.message += value;
+        // this.message += value;
+        this.messages[++this.messagesIndex] = value;
+        if (this.messagesIndex == 0x10000) {
+            this.logToFile();
+            this.messagesIndex = 0;
+        }
+        // this.messages.push(value);
     }
 
     publishLog() {
@@ -75,12 +93,13 @@ export class Logger{
     }
 
     logToFile() {
-        if (this.message != '') {
-            this.publishLog();
-        }
         let output = ''
         this.messages.forEach(message => output += `${message}`);
-        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "logOutput.yaml"), output);
+        fs.writeFile(path.resolve(dirname(fileURLToPath(import.meta.url)), `..\\logOutput`, `${this.filename}.yaml`), output, { flag: 'a' },
+            (err) => {
+                if(err != null) console.log(err) 
+            });
+        output = ''
         this.messages = new Array<string>();
     }
 

@@ -51,15 +51,25 @@ export class CPU {
     private isQuitting = false;
     private enableInterruptsInNcycles = 0;
     private isHalting = false;
+    private isInDefaultHaltingBugState = false;
+    private isInEiHaltingBugState = false;
+    private isHaltingBugActiveCycles = 0;
+    private eiHaltingBugHaltLocation = 0x00;
+    private isInRstHaltingBugState = false;
     private currentOpCode = 0;
     private globalTicks = 0;
     private currentOperationCost = 0;
+    private LY = 0;
+    private LX = 0;
+    private haltBugMemoryLocationToRepeat = 0;
+    private rstVector = [0xC7, 0xD7, 0xE7, 0xF7, 0xCF, 0xDF, 0xEF, 0xFF];
+    private vBlankInterruptRequested = false;
     logger: Logger;
 
     debugState: boolean;
 
     constructor(ram: RAM, skipBoot = false) {
-        this.logger = new Logger();
+        this.logger = new Logger("logOutput");
         this.A = new Register8bit(0, "A");
         this.B = new Register8bit(0, "B");
         this.C = new Register8bit(0, "C");
@@ -128,7 +138,7 @@ export class CPU {
                 this.SP.setRegister(0xFFFE);
             }
         }
-
+        // this.RAM.write(0xFF44, 0);
         this.bitwiseSolver = new BitwiseOperationSolver(this);
         this.operationCostModified = false;
         //MUST LOAD RAM BEFORE SETTING DIVIDER AND COUNTER TIMERS
@@ -161,6 +171,7 @@ export class CPU {
             this.logger.configureLogging(this.globalTicks);
             if (this.currentOperationCost != this.operationCost) {
                 this.clock.tick(0)
+                this.updateLY();
                 this.updateTimers();
                 // this.operationCost--;
                 this.currentOperationCost++;
@@ -179,15 +190,10 @@ export class CPU {
             }
 
             //check for interrupts and service them
-            routineLocation = this.interruptHandler.handle();
-            if (routineLocation > 0) {
-                this.writeMemory(this.interruptHandler.getInterruptFlag(), 0xFF0F);
-                this.push(this.PC);
-                this.configureProgramCounter(routineLocation);
-            }
 
             if (this.debugState) {
-                // this.logState();
+                // this.logState(); //THIS SHIT GETS SLOW AS FUCCCCCK on BUN
+
                 if (this.globalTicks > this.limit) { this.isQuitting = true; }
                 if (this.readMemory(0xFF02) == 0x81) { 
                     this.writeMemory(0x00, 0xFF02);
@@ -195,9 +201,16 @@ export class CPU {
                     if (outputChar == 32) {
                         outputChar = 10;
                     }
+                    //handle conversion for tests because there is no ascii char for values greater than 9
+                    if (outputChar >= 58 && outputChar <= 64) {
+                        outputChar = 10 + (58 - outputChar);
+                    
+                    }
+                    
                     testOutput += String.fromCharCode(outputChar);
                 }
             }
+            routineLocation = this.interruptHandler.handle();
 
             if (this.isHalting) {
                 if (this.globalTicks == this.limit) { this.isQuitting = true; }
@@ -214,9 +227,33 @@ export class CPU {
                 //if IME is not set, behavior is dependent on whether interrupt is pending
                 continue;
             }
+            if (routineLocation > 0) {
+                this.writeMemory(this.interruptHandler.getInterruptFlag(), 0xFF0F);
+                if (this.isInEiHaltingBugState) {
+                    const z = structuredClone(this.PC);
+                    z.setRegister(this.PC.getCounterNoincrement() - 1);
+                    this.push(z);
+                    this.isInEiHaltingBugState = false;
+                } else {
+                    this.push(this.PC);
+                }
+                this.configureProgramCounter(routineLocation);
+            }
 
-            this.currentOpCode = this.read8bitValueUsingPC();
-            this.opCodesLibrary[this.currentOpCode]();
+            if (this.isHaltingBugActiveCycles == 2) {
+                this.isHaltingBugActiveCycles--;
+                this.currentOpCode = this.read8bitValueUsingPC();
+                this.PC.setCounterValue(this.PC.getCounterNoincrement() - 1);
+            }
+            else { 
+                this.currentOpCode = this.read8bitValueUsingPC();
+            }
+            if (this.opCodesLibrary[this.currentOpCode] === undefined) {
+                console.log("undefined OPcode: " + this.currentOpCode);
+            } else {
+                this.opCodesLibrary[this.currentOpCode]();
+                
+            }
 
             // this.logger.logTimer(this.clock.getClockState(), this.readMemory(0xff05), this.readMemory(0xff06));
             // this.clock.updateControlState(controlStates.getControlState(this.readMemory(0xFF07)));
@@ -224,17 +261,19 @@ export class CPU {
         }
         // this.logger.logString(testOutput);
         this.logger.logToConsole(testOutput);
-        // this.logger.logToFile();
+        this.logger.logToFile();
         // this.logger.logOpCodesToFile(); 
         // this.logger.logTimerToFile();
         // this.logger.logInterruptsToFile();
     }
 
 
+
     private populateOpcodes() {
         this.opCodesLibrary = {
             0x00: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
+                // this.read8bitValueUsingPC(); this is definitely wrong but why did i add it
              },
             0x10: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
@@ -451,14 +490,36 @@ export class CPU {
             0x76: () => {
                 this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
                 this.isHalting = true;
-                const interruptPending = (this.interruptHandler.getInterruptFlag() & this.interruptHandler.getInterruptEnableFlag()); 
-
+                const interruptPending = (this.interruptHandler.getInterruptFlag()
+                    & this.interruptHandler.getInterruptEnableFlag()) & 0x1F; 
+                console.log("IE: " + this.interruptHandler.getInterruptEnableFlag());
+                console.log("IF: " + this.interruptHandler.getInterruptFlag());
+                console.log(interruptPending);
+                console.log("----------");
                 if (!this.interruptHandler.masterInterruptFlag) {
                     if (interruptPending == 0) {
                         this.isHalting = true;
                     }
                     else if (interruptPending > 0){
                         this.isHalting = false; // triggers halt bug
+                        this.isInEiHaltingBugState = this.enableInterruptsInNcycles == 1;
+                        this.isInRstHaltingBugState = this.rstVector.includes(this.PC.getCounterNoincrement());
+                        if (this.isInEiHaltingBugState || (this.isInEiHaltingBugState && this.isInRstHaltingBugState)) {
+                            // EI bug 
+                            this.eiHaltingBugHaltLocation = this.currentOpCode;
+                            this.isInRstHaltingBugState = false;
+
+                        }
+                        else if (this.isInRstHaltingBugState) {
+                            //rst's return will point to rst itself
+                        }
+                        else if (!this.isInEiHaltingBugState && !this.isInRstHaltingBugState) {
+                            // this.PC.setCounterValue(this.PC.getCounterNoincrement() - 1);
+
+                            this.isHaltingBugActiveCycles = 2;
+                            this.haltBugMemoryLocationToRepeat = this.readPC();
+                            // this.isInDefaultHaltingBugState = true;
+                        }
                     }
                 }
             },
@@ -877,7 +938,7 @@ export class CPU {
         if (this.counter.interruptTriggered) {
             // request interrupt $50
             this.counter.interruptTriggered = false;
-            this.interruptHandler.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER);
+            this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER);
             this.writeMemory(this.interruptHandler.getInterruptFlag(), 0xFF0F);
         }
 
@@ -893,7 +954,6 @@ export class CPU {
 
     readMemory(address: number, isFreeRead = true): number {
         if (isFreeRead) return this.RAM.read(address).value;
-        const readCost = 4;
         const value = this.RAM.read(address).value;
         return value;
     }
@@ -907,6 +967,12 @@ export class CPU {
         }
         else if (address == 0xFF06) {
             this.counter.updateModulo(value);
+        }
+        else if (address == 0xFFFF) {
+            this.interruptHandler.configureInterruptEnableFlag(value);
+        }
+        else if (address == 0xFF0F) {
+            this.interruptHandler.configureInterruptFlag(value);
         }
         this.RAM.write(address, value);
 
@@ -938,7 +1004,17 @@ export class CPU {
 
     read8bitValueUsingPC(isFreeRead = true): number {
         // if(isFreeRead) return this.readMemory(this.PC.getCounterValue());
+        if (this.isHaltingBugActiveCycles == 1) {
+            // this.isHaltingBugActiveCycles = 0;
+            // console.log("rerunning " + this.readMemory(this.haltBugMemoryLocationToRepeat));
+            // return this.readPC();
+            // return this.readMemory(this.haltBugMemoryLocationToRepeat);
+        }
+        // this.isHaltingBugActiveCycles--;
         const value = this.readMemory(this.PC.getCounterValue());
+        // if (this.isHaltingBugActiveCycles == 1) {
+        //     console.log("repeating the following : " + value);
+        // }
         return value;
     }
 
@@ -1016,9 +1092,11 @@ export class CPU {
 
     private jump() {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_12);
-        const jump_by_n_bits = this.read8bitValueUsingPC();
-        this.PC.setCounterValue(this.PC.getCounterNoincrement() + 
-            new Uint8(jump_by_n_bits).getSignedRepresentation());
+        const jump_by_n_bits = new Uint8(this.read8bitValueUsingPC()).getSignedRepresentation();
+        if (jump_by_n_bits == -2) { //we're about to enter an infinite loop, MUST quit
+            this.isQuitting = true; 
+        }
+        this.PC.setCounterValue(this.PC.getCounterNoincrement() + jump_by_n_bits);
     }
 
     private increment(register: Register8bit) {
@@ -1226,7 +1304,12 @@ export class CPU {
 
     private rst(address: number) {
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_16);
-        this.pushValueToStack(this.PC.LoRegister, this.PC.HiRegister);
+        if (this.isInRstHaltingBugState) {
+            this.pushValueToStack(this.PC.LoRegister - 1, this.PC.HiRegister - 1);
+            this.isInRstHaltingBugState = false;
+        } else {
+            this.pushValueToStack(this.PC.LoRegister, this.PC.HiRegister);
+        }
         this.PC.setRegister(address);
     }
 
@@ -1236,6 +1319,12 @@ export class CPU {
             this.PC.setRegister(this.build16bitValue(this.popStack(), this.popStack()));
         }
         this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_8);
+    }
+
+    private requestInterrupt(source : string) {
+        this.interruptHandler.requestInterrupt(source);
+        const interruptFlag = this.interruptHandler.getInterruptFlag();
+        this.writeMemory(interruptFlag, 0xFF0F);
     }
 
     public setOperationCost(cost: number) {
@@ -1289,6 +1378,27 @@ export class CPU {
         this.RAM.write(0xFF44, 0x90);
     }
 
+    updateLY() {
+        this.LX++;
+
+        let LY = this.RAM.read(0xFF44).value;
+        if (this.LX == 160) {
+            this.vBlankInterruptRequested = false;
+            LY++;
+            if (LY == 153) LY = 0;
+            this.writeMemory(LY, 0xFF44);
+            this.LX = 0;
+        }
+
+        if (LY == 144) {
+            if (!this.vBlankInterruptRequested) {
+                this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK);
+                this.vBlankInterruptRequested = true;            
+            }
+        }
+
+    }
+
 
     private logState() {
         this.logger.logRegister8bit(this.A);
@@ -1310,6 +1420,14 @@ export class CPU {
         this.logger.logMemory(this.readMemory(this.readPC()+1));
         this.logger.logMemory(this.readMemory(this.readPC()+2));
         this.logger.logMemory(this.readMemory(this.readPC() + 3));
+        this.logger.logString(' LX: ');
+        this.logger.logMemory(this.LX);
+        this.logger.logString(' LY: ');
+        this.logger.logMemory(this.RAM.read(0xFF44).value);
+        this.logger.logString(' IE: ');
+        this.logger.logMemory(this.RAM.read(0xFFFF).value);
+        this.logger.logString(' IF: ');
+        this.logger.logMemory(this.RAM.read(0xFF0F).value);
         this.logger.logString(` TIMA : ${this.readMemory(0xFF05)}\n`);
     }
 }
