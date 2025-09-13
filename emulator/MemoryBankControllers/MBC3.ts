@@ -2,6 +2,8 @@ import { Bank } from './bank';
 import { iMBC } from './iMBC';
 import { mbcCreator } from './mbcCreator';
 export class MBC3 implements iMBC{
+    RomBankNumber = 0;
+    MbcType = "MBC3";
     cartridge!: Uint8Array;
     canUseRam(): boolean {
         throw new Error('Method not implemented.');

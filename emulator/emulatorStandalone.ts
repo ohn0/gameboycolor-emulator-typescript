@@ -5,6 +5,7 @@ import { RomLoader } from "./romLoader";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import * as path from 'path';
+import { Logger } from "../logger/logger";
 const resourceLocation = "..\\resources";
 interface romModule  {
     fileName: string,
@@ -48,11 +49,12 @@ const memTimingTester: romModule[] = [
 
 
 export function initCpu(testName : string, loopLimit : number) : CPU {
+    const logger = new Logger("logOutput");
     const loadedRom = mbcCreator.getMBC(
         RomLoader.load(path.resolve(dirname(fileURLToPath(import.meta.url)), resourceLocation,
-            testName), true));
-    const ram = new RAM(loadedRom);
-    const cpu = new CPU(ram, true);
+            testName), true), logger);
+    const ram = new RAM(loadedRom, logger);
+    const cpu = new CPU(ram, logger, true);
 
     cpu.debugState = true;
     cpu.configureDebugStateLoopLimit(loopLimit);

@@ -17,9 +17,7 @@ export class InterruptHandler{
     }
     
     constructor(logger: Logger) {
-        if (logger != undefined) {
-            this.logger = logger;
-        }
+        this.logger = logger;
         this.interruptEnableFlag = new Uint8(0);
         this.interruptFlag = new Uint8(0);
         this.interruptVector = new Array<Interrupt>();

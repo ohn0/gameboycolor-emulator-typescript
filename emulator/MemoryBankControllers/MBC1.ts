@@ -29,9 +29,10 @@ export class MBC1 implements iMBC{
     private gameSize = 0;
     private readonly RomBankNumberThreshold = 1048576;
     private readonly RamBankSizeThreshold = 524288;
+    private logger!: Logger;
 
-    logger: Logger;
-    configure(gameData: Uint8Array): void {
+    configure(gameData: Uint8Array, logger: Logger): void {
+        this.logger = logger;
         this._bankWasChanged = false;
         this.banks = new Array<Bank>(128);
         this.ramBanks = new Array<Bank>(4);
@@ -55,10 +56,6 @@ export class MBC1 implements iMBC{
             this.banks[bankIndex].romBank = gameData.slice(byteIndex, byteIndex + 0x4000);
             // this.logger.logArray(Array.from(this.banks[bankIndex].romBank));
             bankIndex++;
-            // console.log("GAMESIZE " + gameSize);
-            // console.log("BANK INDEX " + bankIndex);
-            // console.log("BYTE INDEX " + byteIndex);
-            // console.log(byteIndex + 0x4000);
             byteIndex += 0x4000;
         }
 

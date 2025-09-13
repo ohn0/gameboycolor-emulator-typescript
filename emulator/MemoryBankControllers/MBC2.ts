@@ -3,6 +3,8 @@ import { iMBC } from "./iMBC";
 import { mbcCreator } from "./mbcCreator";
 
 export class MBC2 implements iMBC{
+    RomBankNumber = 0;
+    MbcType = "MBC2";
     cartridge!: Uint8Array;
     canUseRam(): boolean {
         throw new Error("Method not implemented.");

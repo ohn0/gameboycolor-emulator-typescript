@@ -1,3 +1,4 @@
+import { Logger } from '../../logger/logger';
 import { iMBC } from './iMBC';
 import { MBC0 } from './MBC0';
 import { MBC1 } from './MBC1';
@@ -36,7 +37,7 @@ export class mbcCreator{
     }
 
 
-    static getMBC(gameData: Uint8Array): iMBC{
+    static getMBC(gameData: Uint8Array, logger: Logger): iMBC{
         if (this.mbcFactory[gameData[0x147]] == undefined) {
             throw new Error(`mbcType ${gameData[0x147]} is not supported.`);
         }
@@ -45,7 +46,7 @@ export class mbcCreator{
             ? new MBC0()
             : this.mbcFactory[gameData[0x147]]();
 
-        mbc.configure(gameData);
+        mbc.configure(gameData, logger);
         return mbc;
     }
 

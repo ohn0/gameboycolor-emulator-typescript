@@ -68,8 +68,8 @@ export class CPU {
 
     debugState: boolean;
 
-    constructor(ram: RAM, skipBoot = false) {
-        this.logger = new Logger("logOutput");
+    constructor(ram: RAM, logger:Logger, skipBoot = false) {
+        this.logger = logger;
         this.A = new Register8bit(0, "A");
         this.B = new Register8bit(0, "B");
         this.C = new Register8bit(0, "C");

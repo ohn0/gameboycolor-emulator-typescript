@@ -20,7 +20,8 @@ export class RAM{
     }
 
 
-    constructor(mbc: iMBC) {
+    constructor(mbc: iMBC, logger: Logger) {
+        this.logger = logger;
         this.ram = new Uint8Array(0x10000);
         this.mbc = mbc;
         let idx = 0;
