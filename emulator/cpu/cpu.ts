@@ -68,7 +68,7 @@ export class CPU {
 
     debugState: boolean;
 
-    constructor(ram: RAM, logger:Logger, skipBoot = false) {
+    constructor(ram: RAM, logger:Logger, interruptHandler: InterruptHandler, skipBoot = false) {
         this.logger = logger;
         this.A = new Register8bit(0, "A");
         this.B = new Register8bit(0, "B");
@@ -85,7 +85,7 @@ export class CPU {
         
         this.SP = new StackPointer(0xFF,0xFF, "SP");
         this.PC = new ProgramCounter("PC");
-        this.interruptHandler = new InterruptHandler(this.logger);
+        this.interruptHandler = interruptHandler; //new InterruptHandler(this.logger);
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK, 0x40, 1, 0));
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT, 0x48, 2, 1));
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER, 0x50, 3, 2));

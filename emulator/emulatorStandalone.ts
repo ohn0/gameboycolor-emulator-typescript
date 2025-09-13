@@ -1,3 +1,4 @@
+import { InterruptHandler } from './cpu/InterruptHandler';
 import { mbcCreator } from "./MemoryBankControllers/mbcCreator";
 import { RAM } from "./RAM/RAM";
 import { CPU } from "./cpu/cpu";
@@ -6,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import * as path from 'path';
 import { Logger } from "../logger/logger";
+import { JoyPad } from './joypad/joypad';
 const resourceLocation = "..\\resources";
 interface romModule  {
     fileName: string,
@@ -47,14 +49,26 @@ const memTimingTester: romModule[] = [
     {fileName : 'mem_timing.gb', loopLimit: 0xFFFFFF}
 ]
 
+const instrTimingTester: romModule[] = [
+    {fileName: 'instr_timing.gb', loopLimit: 0xFFFFFF} //this one still failing
+]
+
+const interruptTimeTester: romModule[] = [
+    { fileName: 'interrupt_time.gb', loopLimit: 0xFFFFFF }
+]
+
 
 export function initCpu(testName : string, loopLimit : number) : CPU {
     const logger = new Logger("logOutput");
     const loadedRom = mbcCreator.getMBC(
         RomLoader.load(path.resolve(dirname(fileURLToPath(import.meta.url)), resourceLocation,
             testName), true), logger);
+    
+    const interruptHandler = new InterruptHandler(logger);
     const ram = new RAM(loadedRom, logger);
-    const cpu = new CPU(ram, logger, true);
+    const joyPad = new JoyPad(ram, interruptHandler, logger);
+    
+    const cpu = new CPU(ram, logger, interruptHandler, true);
 
     cpu.debugState = true;
     cpu.configureDebugStateLoopLimit(loopLimit);
@@ -72,7 +86,9 @@ export function run(z : romModule[]) {
 }
 
 // run(blarggTests);
-// run(mbcTester);
-// run(haltBugTester);
+run(mbcTester);
+run(haltBugTester);
 run(memTimingTester);
+run(interruptTimeTester);
+run(instrTimingTester);
 // console.log('check bun');

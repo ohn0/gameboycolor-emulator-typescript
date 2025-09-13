@@ -43,8 +43,8 @@ export class Logger{
         this.opcodesTrace = new Array<{
             traceMessage: string, code: opcodeBase
         }>();
+        this.filename = filename;
         if (filename != "") {
-            this.filename = filename;   
             fs.unlink(path.resolve(dirname(fileURLToPath(import.meta.url)), `..\\${filename}`, `${filename}.yaml`), (err) => {console.log('error removing file.')});
         }
     }
