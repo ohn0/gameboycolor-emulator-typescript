@@ -54,6 +54,10 @@ export class clock{
         this.ticks = tickValue;
     }
 
+    public getTicks(){
+        return this.ticks;
+    }
+
     public getClockState():
         {
             clock: number,

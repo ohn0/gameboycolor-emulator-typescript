@@ -33,5 +33,4 @@ export class Uint16{
         this.Lo8bits = new Uint8(Lo);
         this._ = this.Hi8bits.value << 8 | this.Lo8bits.value;
     }
-
 }

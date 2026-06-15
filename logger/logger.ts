@@ -1,11 +1,10 @@
-import {Opcodes} from '../resources/Opcodes';
+// import {Opcodes} from '../resources/Opcodes';
 import { HiLoRegister } from "../emulator/cpu/HiLoRegister";
 import { Register8bit } from "../emulator/cpu/register";
-import * as fs from 'fs';
-import * as  path from 'path';
+// import * as fs from 'node:fs';
 import { Interrupt } from '../emulator/cpu/interrupt';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+// import { fileURLToPath } from 'url';
+// import { dirname } from 'path';
 type opcodeBase = {
     opcode: number | undefined,
     mnemonic: string | undefined,
@@ -45,7 +44,7 @@ export class Logger{
         }>();
         this.filename = filename;
         if (filename != "") {
-            fs.unlink(path.resolve(dirname(fileURLToPath(import.meta.url)), `..\\${filename}`, `${filename}.yaml`), (err) => {console.log('error removing file.')});
+            // fs.unlink(path.resolve(dirname(fileURLToPath(import.meta.url)), `..\\${filename}`, `${filename}.yaml`), (err) => {console.log('error removing file.')});
         }
     }
 
@@ -81,7 +80,7 @@ export class Logger{
         // this.message += value;
         this.messages[++this.messagesIndex] = value;
         if (this.messagesIndex == 0x10000) {
-            this.logToFile();
+            // this.logToFile();
             this.messagesIndex = 0;
         }
         // this.messages.push(value);
@@ -95,10 +94,17 @@ export class Logger{
     logToFile() {
         let output = ''
         this.messages.forEach(message => output += `${message}`);
-        fs.writeFile(path.resolve(dirname(fileURLToPath(import.meta.url)), `..\\logOutput`, `${this.filename}.yaml`), output, { flag: 'a' },
-            (err) => {
-                if(err != null) console.log(err) 
-            });
+        let context = "WEB";
+        if(context == "WEB"){
+            // console.log(output);
+            console.log("logging");
+            fetch("/log",{method: "POST", body: JSON.stringify({body: output})}).then(r => {if(r.ok) console.log('done')});
+        }
+        // Bun.write(Bun.fileURLToPath(path.dirname(import.meta.url)+'\\..\\logOutput\\output.txt'), output);
+        // fs.writeFile(path.resolve(dirname(fileURLToPath(import.meta.url)), `..\\logOutput`, `${this.filename}.yaml`), output, { flag: 'a' },
+        //     (err) => {
+        //         if(err != null) console.log(err) 
+        //     });
         output = ''
         this.messages = new Array<string>();
     }
@@ -115,20 +121,20 @@ export class Logger{
 
     logOpCode(opcode: number, isPrefixed = false, isInterrupt = false) {
         const hexOpcode = `0x${opcode.toString(16).toUpperCase()}`;
-        const opCodeDetails =
-            isPrefixed
-                ? Opcodes.cbprefixed.find(o => o.opcode == opcode)
-                : Opcodes.unprefixed.find(o => o.opcode == opcode);
-        this.opcodesTrace.push({
-            traceMessage: `opcode ${hexOpcode} executed, ${opCodeDetails?.mnemonic}${isInterrupt ? '\n INTERRUPT EXECUTED' :''}`,
-            code: {
-                opcode: opCodeDetails?.opcode,
-                mnemonic: opCodeDetails?.mnemonic,
-                operands: opCodeDetails?.operands.toString(),
-                isPrefixed: isPrefixed,
-                cost: opCodeDetails?.cycles[0]
-            }
-        });
+        const opCodeDetails = "";
+            // isPrefixed
+            //     ? Opcodes.cbprefixed.find(o => o.opcode == opcode)
+            //     : Opcodes.unprefixed.find(o => o.opcode == opcode);
+        // this.opcodesTrace.push({
+        //     traceMessage: `opcode ${hexOpcode} executed, ${opCodeDetails?.mnemonic}${isInterrupt ? '\n INTERRUPT EXECUTED' :''}`,
+        //     code: {
+        //         opcode: opCodeDetails?.opcode,
+        //         mnemonic: opCodeDetails?.mnemonic,
+        //         operands: opCodeDetails?.operands.toString(),
+        //         isPrefixed: isPrefixed,
+        //         cost: opCodeDetails?.cycles[0]
+        //     }
+        // });
     }
 
     logOpCodesToFile() {
@@ -156,16 +162,18 @@ export class Logger{
         
         uniquePrefixedOpCodes.forEach(u =>
             uniquePrefixedOpcodeOutput += `0x${u.opcode?.toString(16).toLocaleUpperCase().padStart(2, '0')}: ${u.mnemonic}` + '\n');
-        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "opcodeTrace.yaml"), output);
-        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "uniqueOpCodes.yaml"), uniqueOpcodeOutput);
-        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "uniquePrefixedOpCodes.yaml"), uniquePrefixedOpcodeOutput);
+        // fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "opcodeTrace.yaml"), output);
+        // fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "uniqueOpCodes.yaml"), uniqueOpcodeOutput);
+        // fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)),'..\\logOutput', "uniquePrefixedOpCodes.yaml"), uniquePrefixedOpcodeOutput);
     }
 
     logTimerToFile() {
         let output = '';
         this.timerRecord.forEach(t => output += t + '\n');
     
-        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)), '..\\logOutput', "timerOutput.yaml"), output);
+        // fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)), '..\\logOutput', "timerOutput.yaml"), output);
+        Bun.write('\\..\\logOutput\\timer_output.txt', output);
+
     }
 
     public logInterrupt(interruptVector: Array<Interrupt>, IME : boolean, IE : number, IF : number) {
@@ -182,7 +190,9 @@ export class Logger{
         this.interruptRecord.forEach(i => output += i + '\n');
         
         // fs.writeFileSync(path.resolve(___dirname, '..\\logOutput', "interruptOutput.yaml"), output);
-        fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)), '..\\logOutput', "interruptOutput.yaml"), output);
+        // fs.writeFileSync(path.resolve(dirname(fileURLToPath(import.meta.url)), '..\\logOutput', "interruptOutput.yaml"), output);
+        Bun.write('\\..\\logOutput\\interrupt_output.txt', output);
+
     }
 
     public logToConsole(message: string) {

@@ -15,6 +15,7 @@ import { controlState, controlStates } from './timers/controlStates';
 import { Interrupt } from './interrupt';
 import { RAM } from '../RAM/RAM';
 import { Logger } from '../../logger/logger';
+import { PPU } from '../graphics/ppu';
 
 export class CPU {
     private RAM: RAM;
@@ -39,11 +40,12 @@ export class CPU {
     private registersLibrary16bit!: { [key: string]: HiLoRegister | StackPointer }
     private flags!: { [key: string]: boolean }
     private bitwiseSolver!: BitwiseOperationSolver;
-    private operationCost!: number;
+    private operationCost: number = 0;
     private operationCostModified: boolean;
     private divider: divider;
     private counter: counter;
     private clock: clock;
+    // private PPU : PPU;
     private controlState: controlState;
     private interruptHandler: InterruptHandler;
     private limit!: number;
@@ -64,11 +66,16 @@ export class CPU {
     private haltBugMemoryLocationToRepeat = 0;
     private rstVector = [0xC7, 0xD7, 0xE7, 0xF7, 0xCF, 0xDF, 0xEF, 0xFF];
     private vBlankInterruptRequested = false;
+    private statInterruptRequested = false;
+    private routineLocation : number = -1;
+    private testOutput : string = "";
+    private ppuMode : number;
+    private ramChangeTracker! : Array<{address : number, value : number}>
     logger: Logger;
 
     debugState: boolean;
 
-    constructor(ram: RAM, logger:Logger, interruptHandler: InterruptHandler, skipBoot = false) {
+    constructor(ram: RAM, logger:Logger, skipBoot = false) {
         this.logger = logger;
         this.A = new Register8bit(0, "A");
         this.B = new Register8bit(0, "B");
@@ -85,13 +92,14 @@ export class CPU {
         
         this.SP = new StackPointer(0xFF,0xFF, "SP");
         this.PC = new ProgramCounter("PC");
-        this.interruptHandler = interruptHandler; //new InterruptHandler(this.logger);
+        this.interruptHandler = new InterruptHandler(this.logger);
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK, 0x40, 1, 0));
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT, 0x48, 2, 1));
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER, 0x50, 3, 2));
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_SERIAL, 0x58, 4, 3));
         this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_JOYPAD, 0x60, 5, 4));
         this.RAM = ram;
+        // this.PPU = new PPU(this.RAM, this.interruptHandler, this.logger);
         this.debugState = false;
         this.registersLibrary8bit = {
             "A": this.A,
@@ -118,7 +126,7 @@ export class CPU {
             "N": this.F.zeroFlag,
             "C": this.F.carryFlag
         };
-        
+
         if (skipBoot) {
             this.RAM.ram = InitializationMapper.initializePostBootRAMState(this.RAM.ram, this.gameBoyType);
             this.configureProgramCounter(0x0100);
@@ -158,6 +166,35 @@ export class CPU {
             this.controlState); 
 
         this.populateOpcodes();
+        // this.PPU = ppu;
+        this.ppuMode = 0;
+
+        self.onmessage = (msg) => {
+            if(msg.data.action == "PPUMODE"){
+                this.ppuMode = msg.data.ppumode;
+            }
+
+            if(msg.data.action == "WRITE"){
+                this.RAM.write(msg.data.address, msg.data.value);
+            }
+
+            if(msg.data.action == "WRITEBLOCK"){
+                var start = msg.data.start;
+                var end = msg.data.end;
+                for(let i = 0; i <= msg.data.data.length; i++){
+                    this.RAM.write(start + i, msg.data.data[i]);
+                }
+            }
+
+            if(msg.data.action == "STATINTERRUPT"){
+                this.triggerStatInterrupt();
+            }
+        }
+
+        this.sendMessage({
+            action: "CPU_STARTED",
+            ramArray: this.RAM.ram
+        })
     }
 
     async loop() {
@@ -206,8 +243,14 @@ export class CPU {
                         outputChar = 10 + (58 - outputChar);
                     
                     }
-                    
-                    testOutput += String.fromCharCode(outputChar);
+                    var c = String.fromCharCode(outputChar);
+                    if(c == '\n'){
+                        this.logger.logToConsole(testOutput);
+                        testOutput = ''
+                    }
+                    else {
+                        testOutput += c;
+                    }                    
                 }
             }
             routineLocation = this.interruptHandler.handle();
@@ -252,22 +295,23 @@ export class CPU {
                 console.log("undefined OPcode: " + this.currentOpCode);
             } else {
                 this.opCodesLibrary[this.currentOpCode]();
-                
             }
-
+            if(this.clock.getTicks() % 456 == 0){
+                // await this.PPU.render(); //renders a SINGLE frame
+                // window.requestAnimationFrame(() => {this.PPU.render()})
+            }
+            this.triggerStatInterrupt();
             // this.logger.logTimer(this.clock.getClockState(), this.readMemory(0xff05), this.readMemory(0xff06));
             // this.clock.updateControlState(controlStates.getControlState(this.readMemory(0xFF07)));
 
         }
         // this.logger.logString(testOutput);
-        this.logger.logToConsole(testOutput);
-        this.logger.logToFile();
+        console.log(this.globalTicks);
+        // this.logger.logToFile();
         // this.logger.logOpCodesToFile(); 
         // this.logger.logTimerToFile();
         // this.logger.logInterruptsToFile();
     }
-
-
 
     private populateOpcodes() {
         this.opCodesLibrary = {
@@ -492,10 +536,6 @@ export class CPU {
                 this.isHalting = true;
                 const interruptPending = (this.interruptHandler.getInterruptFlag()
                     & this.interruptHandler.getInterruptEnableFlag()) & 0x1F; 
-                console.log("IE: " + this.interruptHandler.getInterruptEnableFlag());
-                console.log("IF: " + this.interruptHandler.getInterruptFlag());
-                console.log(interruptPending);
-                console.log("----------");
                 if (!this.interruptHandler.masterInterruptFlag) {
                     if (interruptPending == 0) {
                         this.isHalting = true;
@@ -953,12 +993,44 @@ export class CPU {
     }
 
     readMemory(address: number, isFreeRead = true): number {
+        var currentPpuMode = this.ppuMode;
+        var addressRegionToRead = "";
+        if(address >= 0x8000 && address <= 0x9FFF){
+            addressRegionToRead = "VRAM"; //no reading during mode 3
+        }
+        else if(address >= 0xFF68 && address <= 0xFF6B){
+            addressRegionToRead = "PALETTES"; //no reading during mode 3
+        }
+        else if(address >= 0xFE00 && address <= 0xFE9F){
+            addressRegionToRead = "OAM";
+        }
+
+        switch(addressRegionToRead){
+            case "VRAM":
+            case "PALETTES":
+                if(currentPpuMode == 3){
+                    return 0xFF;
+                }
+                break;
+            case "OAM":
+                if(currentPpuMode == 3 || currentPpuMode == 2){
+                    return 0xFF;
+                }
+                break;
+        }
+        
+        if(addressRegionToRead == "VRAM"){
+            // return this.PPU.readVram(address);
+            return this.RAM.read(address).value;
+        }
+
         if (isFreeRead) return this.RAM.read(address).value;
         const value = this.RAM.read(address).value;
         return value;
     }
 
     writeMemory(value: number, address = -1) {
+        var ramLocked = false;
         if (address == -1) {
             address = this.HL.getRegister();
         }
@@ -974,7 +1046,58 @@ export class CPU {
         else if (address == 0xFF0F) {
             this.interruptHandler.configureInterruptFlag(value);
         }
-        this.RAM.write(address, value);
+        else if (address >= 0x8000 && address <= 0x9FFF){
+            this.sendMessage({
+                action: "UPDATE",
+                address : address,
+                value : value
+            });
+            var currentPpuMode = this.ppuMode;
+            //need to not write during mode 3
+            if(currentPpuMode != 3){
+                // this.PPU.updateVramBank(value, address);
+                //we are updating the tile map region
+                //so we need to also update the tileloader
+                // this.PPU.setTilesChanged(true);
+            }
+        }
+        // else if(address == 0xFF42){
+        //     this.PPU.scroll(value, this.RAM.read(0xFF43).value);
+        // }
+        // else if(address == 0xFF43){
+        //     this.PPU.scroll(this.RAM.read(0xFF42).value, value);
+        // }
+        else if (address == 0xFF69){
+            // this.PPU.updateBackgroundPalette(new Uint8(value));
+            this.sendMessage({
+                action : "updateBackgroundPalette",
+                value : new Uint8(value)
+            });
+        }
+        else if (address == 0xFF6B){
+            // this.PPU.updateObjectPalette(new Uint8(value));
+            this.sendMessage({
+                action : "updateObjectPalette",
+                value : new Uint8(value)
+            })
+        }
+        else if(address >= 0xFE00 && address <= 0xFE9F){
+            // var ppuMode = this.PPU.getPpuMode();
+            if(this.ppuMode > 1){
+                ramLocked = true;
+            }
+        }
+        else if(address == 0xFF4F){
+            // this.PPU.changeBanks(value, this.RAM.read(0xFF4F).value);
+            this.sendMessage({
+                action: "changeBanks",
+                currentBank : value,
+                value: this.RAM.read(0xFF4F).value
+            });
+        }
+        if(!ramLocked){
+            this.RAM.write(address, value);
+        }
 
         if (address == 0xFF07) {
             this.clock.updateControlState(controlStates.getControlState(this.readMemory(0xFF07)));
@@ -1364,6 +1487,10 @@ export class CPU {
         //              : ((((((a & 0xf) - (b & 0xf)) % 0x10) + 0x10) % 0x10) & 0x10) == 0x10
     }
 
+    private sendMessage(payload : any){
+        self.postMessage(payload);
+    }
+
     public wait() {
         const readCost = 4;
         for (let i = 0; i < readCost; i++){
@@ -1375,28 +1502,32 @@ export class CPU {
     }
 
     DebugAlwaysReturnVBlank() {
-        this.RAM.write(0xFF44, 0x90);
+        // this.RAM.write(0xFF44, 0x90);
     }
 
     updateLY() {
         this.LX++;
 
         let LY = this.RAM.read(0xFF44).value;
-        if (this.LX == 160) {
-            this.vBlankInterruptRequested = false;
-            LY++;
-            if (LY == 153) LY = 0;
-            this.writeMemory(LY, 0xFF44);
-            this.LX = 0;
-        }
+        // if (this.LX == 160) {
+        //     this.vBlankInterruptRequested = false;
+        //     LY++;
+        //     if (LY == 153) LY = 0;
+        //     this.writeMemory(LY, 0xFF44);
+        //     this.LX = 0;
+        // }
 
-        if (LY == 144) {
-            if (!this.vBlankInterruptRequested) {
-                this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK);
-                this.vBlankInterruptRequested = true;            
-            }
-        }
+        // if (LY == 144) {
+        //     if (!this.vBlankInterruptRequested) {
+        //         this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK);
+        //         this.vBlankInterruptRequested = true;            
+        //     }
+        // }
+    }
 
+    triggerStatInterrupt() {
+        this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT);
+        this.statInterruptRequested = true;
     }
 
 

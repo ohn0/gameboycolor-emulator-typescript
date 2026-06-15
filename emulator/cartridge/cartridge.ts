@@ -1,3 +1,5 @@
+import { file } from "bun";
+import { Logger } from "../../logger/logger";
 import { iMBC } from "../MemoryBankControllers/iMBC";
 import { mbcCreator } from "../MemoryBankControllers/mbcCreator";
 import { RomLoader } from "../romLoader";
@@ -20,8 +22,10 @@ export class Cartridge{
     }
 
     constructor(filename: string) {
-        this.gameData = RomLoader.load(filename);
-        this.mbc = mbcCreator.getMBC(this.gameData);
+        RomLoader.load(filename).then(z => {
+            this.gameData = z;
+        });
+        this.mbc = mbcCreator.getMBC(this.gameData, new Logger("logger"));
     }
 
     private getMbcConfiguration(): { mbcType: number, romSize: number, ramSize: number } {

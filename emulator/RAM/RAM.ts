@@ -6,6 +6,7 @@ export class RAM{
     private _ram!: Uint8Array;
     private _mbc!: iMBC;
     private logger: Logger;
+
     public get mbc(): iMBC {
         return this._mbc;
     }
@@ -47,7 +48,7 @@ export class RAM{
         // this.logger.logToConsole(`R: address: ${address.toString(16).toLocaleUpperCase().padStart(8, '0')}, value: ${value.toString(16).toLocaleUpperCase().padStart(8, '0')}`)
     }
 
-    read(address: number): Uint8 {
+    public read(address: number): Uint8 {
         // this.logger.logToConsole(`W: address: ${address.toString(16).toLocaleUpperCase().padStart(8, '0')}`)
         if (this.mbc.canUseRam() && address >= 0xA000 && address <= 0xBFFF) {
             return new Uint8(this.mbc.readFromRam(address));
