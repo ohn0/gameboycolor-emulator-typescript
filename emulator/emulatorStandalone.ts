@@ -5,12 +5,9 @@ import { CPU } from "./cpu/cpu";
 import { RomLoader } from "./romLoader";
 // import { fileURLToPath } from 'url';
 // import * as b from 'bun';
-import * as path from 'path';
 import { Logger } from "../logger/logger";
 import { JoyPad } from './joypad/joypad';
-import { dirname } from 'node:path';
 import { PPU } from './graphics/ppu';
-import { worker } from 'node:cluster';
 const resourceLocation = "..\\resources";
 interface romModule  {
     fileName: string,
@@ -23,11 +20,11 @@ const blarggTests: romModule[] = [
     
     //all tests below PASS
     
-    {fileName: 'instr_timing.gb', loopLimit: 3100000},
+    // {fileName: 'instr_timing.gb', loopLimit: 3100000},
     // {fileName: '01-read_timing.gb', loopLimit: 4000000 },
     // {fileName: '02-write_timing.gb', loopLimit: 4000000 },
     // {fileName: '01-special.gb', loopLimit: 20000000},
-    // {fileName: '02-interrupts.gb', loopLimit: 4000000},
+    {fileName: '02-interrupts.gb', loopLimit: 4000000},
     // {fileName: '03-op sp,hl.gb', loopLimit: 20000000},
     // {fileName: '04-op r,imm.gb', loopLimit: 20000000},
     // {fileName: '05-op rp.gb', loopLimit: 20000000},
@@ -59,6 +56,25 @@ const interruptTimeTester: romModule[] = [
     { fileName: 'interrupt_time.gb', loopLimit: 0xFFFFFF } //requires CGB so maybe still failing
 ]
 
+var cpuWorkerStr = `
+import { CPU } from "./emulator/cpu/cpu";
+import { mbcCreator } from "./emulator/MemoryBankControllers/mbcCreator";
+import { RAM } from "./emulator/RAM/RAM";
+import { Logger } from "./logger/logger";
+  self.onmessage = (msg) => {
+    if (msg.data.action == "UPDATE") {
+      let logger = new Logger("cpu_worker");
+      let loadedRom = mbcCreator.getMBC(msg.data.rom, logger);
+      let ram = new RAM(loadedRom, logger);
+      ram.useSharedBufferAsSource();
+      let cpu = new CPU(ram, logger, true);
+      cpu.debugState = true;
+      cpu.configureDebugStateLoopLimit(msg.data.loopLimit);
+      cpu.loop();
+    }
+  };
+})();
+`
 
 export async function initEmulator(rom : string, loopLimit : number){
     const logger = new Logger("logOutput");
@@ -72,31 +88,20 @@ export async function initEmulator(rom : string, loopLimit : number){
     var blob = new Blob([fileText], {type : "text/javascript"});
     var clonedRam = structuredClone(ram);
     clonedRam.mbc = loadedRom;
+
     let cpuWorker = new Worker(
-        URL.createObjectURL(blob), {type: "module"});
-    
+    URL.createObjectURL(blob), {type: "module"});
+    console.log('wtf');
     cpuWorker.postMessage({action: "UPDATE", 
-        data : clonedRam, 
-        rom: romData,
-        // interruptHandler : interruptHandler, 
-        // logger : logger, 
-        loopLimit : loopLimit})
+    rom: romData,
+    loopLimit : loopLimit})
     const ppu = new PPU(cpuWorker, ram, logger);
-    // window.requestAnimationFrame(async () => {await ppu.render()});
-    // const cpu = new CPU(ram,ppu, logger, interruptHandler, true);
-
-    // cpu.debugState = true;
-    // cpu.configureDebugStateLoopLimit(loopLimit);
-
-    // return cpu;
 }
 
 export async function run(z : romModule[]) {
     z.forEach(async test => {
         await initEmulator(test.fileName, test.loopLimit);
         const start = performance.now();
-        // cpu.loop();
-        // window.setInterval(() => cpu.tick(), 5);
         const end = performance.now();
     })
 }
@@ -117,8 +122,9 @@ export async function runCpu(z : romModule[]) {
 
 // fetch(`/getRom/${mbcTester[0].fileName}`).then(z => console.log(z.bytes()))
 // run(blarggTests);
+// run(memTimingTester);
+// run(blarggTests);
 run(mbcTester);
-// runCpu(mbcTester);
 // run(haltBugTester);
 // run(memTimingTester);
 // run(interruptTimeTester);

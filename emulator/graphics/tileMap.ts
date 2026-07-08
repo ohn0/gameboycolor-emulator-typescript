@@ -8,14 +8,18 @@ export class TileMap {
     vram: vramBank;
     vramBankIndex : number;
     tileMap : Array<number>;
-    attributeMap : Array<number>;
+    attributeMap! : Array<number>;
     startIndex : number;
-    constructor(start : number, ram : vramBank, currentBank : number){
-        this.startIndex = start;
+    cgbModeEnabled : boolean = false;
+    constructor(start : number, ram : vramBank, currentBank : number, isCgbModeEnabled : boolean){
+        this.startIndex = start - 0x8000;
         this.vram = ram;
         this.vramBankIndex = currentBank;
-        this.tileMap = ram.bank0.slice(start, start + 0x400);
-        this.attributeMap = ram.bank1.slice(start, start + 0x400);
+        this.cgbModeEnabled = isCgbModeEnabled;
+        this.tileMap = this.vram.readBlock(0, this.startIndex, this.startIndex+0x400);
+        if(isCgbModeEnabled){
+            this.attributeMap = this.vram.readBlock(1, this.startIndex, this.startIndex + 0x400);
+        }
         if(! (start == 0x9800 || start == 0x9C00)){
             console.log("invalid start bank index in tileMap.ts, start value is " + start);
         }
@@ -23,7 +27,7 @@ export class TileMap {
     }
 
     getTile(tileIndex : number) : number {
-        return this.vram.bank0[tileIndex];
+        return this.vram.read(0, this.startIndex + tileIndex);
     }
 
     getPixel(tileX : number, tileY : number){
@@ -37,8 +41,10 @@ export class TileMap {
     }
 
     update(ram : vramBank, currentBank : number){
-        this.tileMap = ram.bank0.slice(this.startIndex, this.startIndex + 0x400);
-        this.attributeMap = ram.bank1.slice(this.startIndex, this.startIndex+0x400);
+        this.tileMap = ram.readBlock(0, this.startIndex, this.startIndex + 0x400);
+        if(this.cgbModeEnabled){
+            this.attributeMap = ram.readBlock(1, this.startIndex, this.startIndex+0x400);
+        }
     }
 
     updateMap(newIndex : number, location : number){
@@ -48,7 +54,10 @@ export class TileMap {
     }
 
     getAttributes(index: number) : Attribute {
-        var tile = this.vram.bank1[index];
+        if(!this.cgbModeEnabled)
+            throw new Error("attempting to read tilemap attributes even though emulator is not in GBC mode");
+        
+        var tile = this.vram.read(1, index);
         return new Attribute(
             (tile & 0x80) > 0 ? 1 : 0,
             (tile & 0x40) > 0 ? 1 : 0,

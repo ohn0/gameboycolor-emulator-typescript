@@ -12,3 +12,7 @@ tests/resources
 logOutput/
 resources/
 build/
+out/
+.vscode/
+dist/
+server/

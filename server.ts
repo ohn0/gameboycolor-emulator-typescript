@@ -1,9 +1,19 @@
 import path from "node:path";
-import z from "./index.html"
-
+import index from "./index.html"
+console.log(index);
 const c = Bun.serve({
     routes: {
-        "/":z,
+        "/":
+        {
+            GET() {
+                var iFile = Bun.file("index.html",{type: "text/html"});
+                console.log(iFile);
+                return new Response(iFile, 
+                    {headers: {"Cross-Origin-Embedder-Policy" : "require-corp", "Cross-Origin-Opener-Policy" : "same-origin"}}
+            );
+            }
+        }
+        ,
         "/getRom/:fileName":{
             async GET(f){
                 const { fileName } = f.params;
@@ -27,11 +37,20 @@ const c = Bun.serve({
         "/worker": {
             async GET(f){
                 var file = Bun.file((".\\out\\cpu_worker.js"));
-                return new Response(file);
+                var response = new Response(file); 
+                response.headers.append("Cross-Origin-Embedder-Policy", "require-corp");
+                response.headers.append("Cross-Origin-Opener-Policy", "same-origin");                
+                return response;
+        //         () => {
+        //     var file = Bun.file(".\\index.html");
+        //     var response = new Response(file);
+        //     // response.headers.append("Cross-Origin-Embedder-Policy", "require-corp");
+        //     // response.headers.append("Cross-Origin-Opener-Policy", "same-origin");
+        //     return response;
+        // }
             }
         }
     },
     development : true
 });
-
 console.log(c.port);

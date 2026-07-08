@@ -123,7 +123,6 @@ export class MBC1 implements iMBC{
         this.bankWasChanged = false;
         
         if (memoryWrite.address >= 0x0000 && memoryWrite.address <= 0x1FFF) {
-            console.log(`toggling EnableRamRegister`)
             if ((memoryWrite.value & 0x000A) == 0x0A) {
                 this.EnableRamRegister = true;
             }

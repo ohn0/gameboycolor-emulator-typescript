@@ -2,21 +2,21 @@
     "compilerOptions": {
         "strict": true,
         "target": "ES6",
-        "outDir": "build/",
-        "moduleResolution": "node",
+        "outDir": "server/",
         "allowSyntheticDefaultImports": true,
         "resolveJsonModule": true,
         "esModuleInterop": true,
         "module": "es2022",
-        "sourceMap": true
-
+        "sourceMap": true,
     },
     "ts-node": {
         "transpileOnly": true,
         "files": true,
         "compilerOptions": {
             "rootDir": ".",
+            "lib": ["es2017"],
             "allowSyntheticDefaultImports": true
         }
-    }
+    },
+    "exclude": ["./tests/*", "./server"]
 }

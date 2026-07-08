@@ -1,6 +1,7 @@
 import { MemoryMap } from './memoryMap';
 import { iMBC } from '../MemoryBankControllers/iMBC';
-export class GameBoyMemoryMap extends MemoryMap {
+import { RAM } from '../RAM/RAM';
+export class GameBoyMemoryMap {
 
     private readonly _romBank0 = 0x0000;
     public get romBank0() {
@@ -67,7 +68,8 @@ export class GameBoyMemoryMap extends MemoryMap {
     public readonly INTERRUPT_ENABLE_REGISTER: string = "INTERRUPT ENABLE REGISTER";
 
     constructor() {
-        super(0xFFFF);
+
+        // super(this.echoRAM)
         this.fillMap(0x00);
     }
 
@@ -114,7 +116,7 @@ export class GameBoyMemoryMap extends MemoryMap {
         if (value > 0xFF) {
             throw new Error("value is not an 8bit integer");
         }
-        this.memory.forEach(byte => byte = value);
+        // this.memory.forEach(byte => byte = value);
     }
 
     public write(address: number, value: number): boolean {

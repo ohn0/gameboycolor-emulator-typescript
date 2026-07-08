@@ -6,7 +6,13 @@ export class RAM{
     private _ram!: Uint8Array;
     private _mbc!: iMBC;
     private logger: Logger;
-
+    private _sharedRam!: SharedArrayBuffer;
+    public get sharedRam(): SharedArrayBuffer {
+        return this._sharedRam;
+    }
+    public set sharedRam(value: SharedArrayBuffer) {
+        this._sharedRam = value;
+    }
     public get mbc(): iMBC {
         return this._mbc;
     }
@@ -29,7 +35,15 @@ export class RAM{
         this.mbc.initialBank.romBank.forEach(x => {
             this.ram[idx++] = x;
         })
-        // this.logger = new Logger();
+    }
+
+    useSharedBufferAsSource(){
+        this.sharedRam = new SharedArrayBuffer(0x10000);
+        this.ram = new Uint8Array(this.sharedRam);
+        let idx = 0;
+        this.mbc.initialBank.romBank.forEach(x => {
+            this.ram[idx++] = x;
+        })
     }
 
     write(address: number, value: number) {
@@ -71,5 +85,4 @@ export class RAM{
 
         throw new Error(`mapped address is invalid. Original address = ${address}`);
     }
-
 }

@@ -5,7 +5,7 @@ export class Tile {
     startIndex : number;
     constructor(){
         this.data = new Uint8Array(16);
-        this.startIndex = -1;
+        this.startIndex = 0;
     }
 
     public populate(vram : vramBank, currentBank : number){
@@ -32,6 +32,11 @@ export class Tile {
             ri++;
         }
         return result;
+    }
+
+    public clearTile()
+    {
+        this.data.fill(0);
     }
 }   
 

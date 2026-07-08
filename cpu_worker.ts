@@ -9,10 +9,10 @@ self.onmessage = (msg) => {
         let logger = new Logger("cpu_worker");
         let loadedRom = mbcCreator.getMBC(msg.data.rom, logger);
         let ram = new RAM(loadedRom, logger);
+        ram.useSharedBufferAsSource();
         let cpu = new CPU(ram, logger, true);
         cpu.debugState = true;
         cpu.configureDebugStateLoopLimit(msg.data.loopLimit)
-        console.log("firing");
         cpu.loop();
     }
 }

@@ -14,7 +14,7 @@ export class RomLoader{
             // rom = Buffer.from(await Bun.file(path.resolve(dirname(fileURLToPath(import.meta.url)), '..', fileName)).arrayBuffer());
             var romArray = new Uint8Array();
             console.log(romArray);
-            var f = new File([romArray], "http://localhost:3000//resources//"+fileName);
+            var f = new File([romArray], "https://localhost:3000//resources//"+fileName);
             var reader = new FileReader();
             reader.readAsArrayBuffer(f);
             console.log("AAAA" + f.arrayBuffer);

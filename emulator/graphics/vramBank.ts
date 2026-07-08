@@ -1,35 +1,35 @@
-import { RAM } from "../RAM/RAM";
+import { RamProxy } from "../RAM/ramProxy";
 
 export class vramBank {
 
-    bank0 : Array<number>;
-    bank1 : Array<number>;
-    constructor(ram : Uint8Array){
+    private bank0 : Array<number>;
+    private bank1 : Array<number>;
+    ram: RamProxy;
+    cgbModeEnabled : boolean = false;
+
+    constructor(ram : Uint8Array, isUsingCgbMode : boolean, ramProxy : RamProxy){
         this.bank0 = new Array<number>(0x2000);
         this.bank1 = new Array<number>(0x2000);
-        
+        this.ram = ramProxy;
+        this.cgbModeEnabled = false;
         for (let z = 0; z < ram.length; z++) {
-            this.bank0[z] = ram[z];            
+            this.bank0[z] = ram[z];          
             this.bank1[z] = ram[z];            
         }
     }
 
     copyBankToRam(bankToCopyFrom : number, ramMessenger : any){
+        if(!this.cgbModeEnabled) return;
         if(bankToCopyFrom == 0){
-            // for(let z = 0x8000; z < 0x9FFF; z++){
-            //     ram.write(z, this.bank0[z - 0x8000]);
-            // }
             ramMessenger(this.bank0);
         }
         else if (bankToCopyFrom == 1){
             ramMessenger(this.bank1);
-            // for(let z = 0x8000; z < 0x9FFF; z++){
-            //     ram.write(z, this.bank1[z - 0x8000]);
-            // }
         }
     }
 
     copyRamToBank(currentBank : number, ram : Uint8Array){
+        if(!this.cgbModeEnabled) return;
         for(let z = 0; z < ram.length; z++){
             if(currentBank == 0){
                 this.bank0[z] = ram[z];
@@ -38,20 +38,12 @@ export class vramBank {
                 this.bank1[z] = ram[z];
             }
         }
-
-        // if(currentBank == 0){
-        //     for(let z = 0x8000; z < 0x9FFF; z++){
-        //         this.bank0[z] = ram[z];
-        //     }
-        // }
-        // else{
-        //     for(let z = 0x8000; z < 0x9FFF; z++){
-        //         this.bank1[z - 0x8000] = ram.read(z).value;
-        //     }
-        // }
     }
 
     read(currentBank : number, index : number) : number{
+        if(!this.cgbModeEnabled){
+            return this.ram.read(index+0x8000).value;
+        }
         if(currentBank == 0){
             return this.bank0[index];
         }
@@ -63,13 +55,30 @@ export class vramBank {
         }
     }
 
+    readBlock(bank : number, startIndex : number, endIndex : number) : Array<number> {
+        if(!this.cgbModeEnabled)
+            return Array.from(this.ram.readBlock(0x8000+startIndex, 0x8000 + endIndex));
+
+        if(bank == 0){
+            return this.bank0.slice(startIndex, endIndex);
+        }
+
+        return this.bank1.slice(startIndex, endIndex);
+    }
+
     write(currentBank : number, index : number, value : number){
-        if(currentBank == 0){
-            this.bank0[index] = value;
+        if(this.cgbModeEnabled){
+            if(currentBank == 0){
+                this.bank0[index] = value;
+            }
+            else if (currentBank == 1){
+                this.bank1[index] = value;
+            }            
         }
-        else if (currentBank == 1){
-            this.bank1[index] = value;
+        else{
+            this.ram.write(index+0x8000, value);
         }
+
     }
 
     getBank(bank: number) : Array<number>{
