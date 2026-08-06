@@ -47,6 +47,19 @@ export class PPU {
     currentBankIndex : number = 0;
     cgbModeEnabled : boolean = false;
     previousYStart : number = 0;
+    canvasCtx : CanvasRenderingContext2D | null;
+    nonCgbPalette!: Array<number>;
+    totalObjectsCurrentlyRendered : number = 0;
+    whiteTile = [
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+    ];
     
     statInterruptRequested : boolean = false;
     readonly CANVAS_WIDTH = 160;
@@ -55,6 +68,7 @@ export class PPU {
     constructor(worker : Worker,ram : RAM, logger: Logger){
         this.worker = worker;
         this.tilesUpdated = false;
+        this.canvasCtx = null;
         this.worker.addEventListener("message", (message) => {
             if(message.data.action == "CPU_STARTED"){
                 console.log("CPU_STARTED")
@@ -62,6 +76,38 @@ export class PPU {
                 this.ram.sharedArray = new Uint8Array(message.data.ram);
                 this.initListeners();
                 this.init();
+            }
+
+            if(message.data.action == "LCD_UPDATE"){
+                console.log("LCD UPDATE");
+                this.lcdcFlag.update(message.data.value);
+            }
+
+            if(message.data.action == "DRAW"){
+                if(this.LY < 144){
+                    this.buildBackgroundAndWindowByLine(this.LY);
+                    window.requestAnimationFrame(() => {this.basicRender();})
+                    // if(this.totalObjectsCurrentlyRendered <= 40) this.BuildObjectByLine();
+                }
+                else if(this.LY == 145){
+                    // window.requestAnimationFrame(() => {this.basicRender();})
+                }
+                
+                if(this.LY == 153){
+                    this.LY = 0;
+                    this.imgDataIndex = 0;
+                    this.rowTracker = 0;
+                    this.totalObjectsCurrentlyRendered =0;
+                    this.buildObjectAttributes();                
+                    this.ram.write(0xFF44, this.LY);
+                }else{
+                    this.ram.write(0xFF44, this.LY);
+                    this.LY++;
+                    // this.worker.postMessage({
+                    //     "action" : "LY_UPDATE",
+                    //     "value" : this.LY
+                    // })
+                }                
             }
         });
     }
@@ -75,7 +121,6 @@ export class PPU {
         let vramBankRegister : number = this.ram.read(0xFF4F).value;
         this.tileMap9800 = new TileMapManager(0x9800,0x9800, 0, this.vramBank, this.cgbModeEnabled);
         this.tileMap9C00 = new TileMapManager(0x9C00,0x9C00, 0, this.vramBank, this.cgbModeEnabled);
-
         this.BCPS = this.ram.read(0xFF68).value;
         this.BCPD = this.ram.read(this.BCPS).value;
         this.getViewPortBoundary(this.ram.read(0xFF42).value, this.ram.read(0xFF43).value);
@@ -90,6 +135,12 @@ export class PPU {
             this.PaletteRam.BgPaletteRam[i] = new Uint8(0x7F);
             this.PaletteRam.BgPaletteRam[i+1] = new Uint8(0xFF);
         }
+        this.canvasCtx = (<HTMLCanvasElement> document.getElementById("canvasScreen")).getContext("2d");
+        if(this.canvasCtx != null){
+            this.canvasCtx.canvas.style.width = `${2 * 160}`;
+            this.canvasCtx.canvas.style.height = `${2 * 144}`;        
+        }
+        
         window.setInterval(() => {
             if(this.ram.read(0xFF4F).value != this.currentBankIndex){
                 this.changeBanks(this.ram.read(0xFF4F).value);
@@ -98,24 +149,32 @@ export class PPU {
                 this.LycEqualsLySTAT = true;
             }
             if(this.LY < 144){
-                this.buildBackgroundByLine(this.LY);
+                this.buildBackgroundAndWindowByLine(this.LY);
+                window.requestAnimationFrame(() => {this.basicRender();})
+
+                // if(this.totalObjectsCurrentlyRendered <= 40) this.BuildObjectByLine();
             }
             else if(this.LY == 145){
-                window.requestAnimationFrame(() => {this.basicRender();})
+                // window.requestAnimationFrame(() => {this.basicRender();})
             }
             
             if(this.LY == 153){
                 this.LY = 0;
                 this.imgDataIndex = 0;
                 this.rowTracker = 0;
+                this.totalObjectsCurrentlyRendered =0;
+                this.buildObjectAttributes();                
                 this.ram.write(0xFF44, this.LY);
             }else{
-                this.LY++;
                 this.ram.write(0xFF44, this.LY);
+                this.LY++;
+                // this.worker.postMessage({
+                //     "action" : "LY_UPDATE",
+                //     "value" : this.LY
+                // })
             }
         }, 0.11);
     }    
-
 
     applyTileMapAttributes(tileIndex : number, attributeTile :Attribute) : Array<Array<number>>
     {
@@ -149,86 +208,152 @@ export class PPU {
         return tileArray;
     }
 
-    buildBackgroundByLine(currentLY: number){
-        this.rowTracker = currentLY;
+    buildBackgroundAndWindowByLine(currentLY: number){
+        // if(!this.lcdcFlag.isLcdPpuEnabled()) return;
         this.lcdcFlag.update(this.ram.read(0xFF40).value);
+        let windowEnabled = false; //this.lcdcFlag.isWindowEnabled();
+        let backgroundEnabled = this.lcdcFlag.BgWinPriority();
+        let setBgToWhite = false;
         if(this.cgbModeEnabled){
             this.tileLoaderBank.pullTileData(this.lcdcFlag, 0, this.vramBank);
             this.tileLoaderBank.pullTileData(this.lcdcFlag, 1, this.vramBank);
         }
         else{
             this.tileLoaderBank.pullTileData(this.lcdcFlag, 0, this.vramBank);
+            var mPalette = this.ram.read(0xFF47).value;
+            this.nonCgbPalette = [
+                mPalette & 0b11,
+                (mPalette & 0b1100) >> 2,
+                (mPalette & 0b110000) >> 4,
+                (mPalette & 0b11000000) >> 6
+            ]            
         }
         this.tileMap9800.tiles.update(this.vramBank, this.ram.read(0xFF4F).value);
         this.tileMap9C00.tiles.update(this.vramBank, this.ram.read(0xFF4F).value);
-        let background = this.tileMap9800;
-        let BGtilemap = this.lcdcFlag.getBgTileMapArea();
-        let topLeftX = this.ram.read(0xFF43).value;
-        let topLeftY = (this.rowTracker + this.ram.read(0xFF42).value) % 256;
-        let attributeTile : Attribute;
-        if(BGtilemap == 0x9C00){
-            background = this.tileMap9C00;
-        }
-        // background.tiles.tileMap.fill(0);
-        // background.tiles.attributeMap.fill(0);
-        // topLeftX = 0;
-        // topLeftY = 0;
-
-        let XIterator = Math.floor(topLeftX/8);
-        let baseY = (Math.floor(topLeftY/8))
-        let YIterator = baseY
-        this.currentTileMapYIndex++;
-        if(this.currentTileMapYIndex == 18){
-            this.currentTileMapYIndex = 0;
-        }
-        // YIterator = YIterator % 32;
-        //populate background IN PIXELS
-        var tilesAdded = 0;
-        // console.log("--------------")
-        // console.log(`X : ${topLeftX}, Y: ${topLeftY} XIterator ${XIterator} YIterator ${YIterator} currentLY :${currentLY} baseY : ${baseY}`)
-        // console.log(this.rowTracker + ' ' + currentLY);
-        while(tilesAdded < 20){
-            // console.log(`YIterator : ${YIterator}, XIterator: ${XIterator}, currentRow : ${currentLY % 8}`)
-            var tileToAdd = background.tiles.getTile((32 * baseY) + XIterator);
-
-            // console.log(attributeTile)
-            // var tile = this.tileLoaderBank.getTile(tileToAdd, this.getCurrentBank());
-            // var tileArray = this.runOamOperations(tile,attributeTile.yflip == 1, attributeTile.xflip == 1);
-            if(tileToAdd == 0){
-                // console.log("???")
-            }
-            if(this.cgbModeEnabled){
-                attributeTile = background.tiles.getAttributes((32 * YIterator) + XIterator);
-                var tileArray = this.applyTileMapAttributes(tileToAdd, attributeTile);
-                this.populateOutputLine(tileArray[currentLY % 8], 
-                    (8 * (tilesAdded)), 640 * 8 * currentLY, attributeTile.palette, false);                
+        var maps = this.getBgAndWindowTileMaps();
+        var pixelIndexY = 0
+        var topLeftX = 0;
+        // if(!windowEnabled && !backgroundEnabled) return;
+        if(windowEnabled){
+            topLeftX = this.ram.read(0xFF4B).value;
+            var topLeftY = this.ram.read(0xFF4A).value;
+            if(topLeftX > 0 && topLeftX < 166 && topLeftY > 0 && topLeftY < 143 && currentLY >= topLeftY){
+                pixelIndexY = (topLeftY + (currentLY - topLeftY)) % 256;           
             }
             else{
-                var tileArray = this.tileLoaderBank.getTile(tileToAdd,0).generateTile();
-                this.populateOutputLine(tileArray[currentLY % 8],   
-                    (8 * (tilesAdded)), 640 * 8 * currentLY, 0, false);                
+                windowEnabled = false;
             }
-            // console.log(tileArray + '' + tileToAdd);
-            // this.populateOutputLine(tileArray[currentLY % 8], 
-            //      (8 * (tilesAdded+topLeftX)), 640 * 8 * currentLY, attributeTile.palette, false);
+        }else{
+            if(backgroundEnabled){
+                topLeftX = this.ram.read(0xFF43).value;
+                pixelIndexY = (currentLY + this.ram.read(0xFF42).value) % 256;
+            }
+            else{
+                setBgToWhite = true;
+            }
+        }
+
+        let attributeTile : Attribute;
+        let XIterator = Math.floor(topLeftX/8);
+        let tileIndexY = (Math.floor(pixelIndexY/8))
+        // if(XIterator == 30){
+        //     console.log(`${XIterator} - ${tileIndexY}`)
+        // }
+        //     console.log(`${XIterator} - ${tileIndexY} - ${this.LY}`)
+
+        //populate background IN PIXELS
+        var tilesAdded = 0;
+        let tileIndexToFind = 0;
+
+        while(tilesAdded < 20){
+            this.lcdcFlag.update(this.ram.read(0xFF40).value);
+            tileIndexToFind = (32 * tileIndexY) + XIterator;
+            if(windowEnabled){
+                var tile = maps.window.tiles.getTile(tileIndexToFind);
+            }else{
+                var tile = maps.background.tiles.getTile(tileIndexToFind);
+            }
+            if(this.cgbModeEnabled){
+                attributeTile = maps.background.tiles.getAttributes(tileIndexToFind);
+                var tileArray = this.applyTileMapAttributes(tile, attributeTile);
+                this.populateOutputLine(tileArray[currentLY % 8],attributeTile.palette,false);
+            }
+            else{
+                var tileArray = this.tileLoaderBank.getTile(tile,0).generateTile();
+                if(setBgToWhite){
+                    var tileArray = this.whiteTile;                    
+                }
+                this.populateOutputLine(tileArray[currentLY % 8],0, false);   
+            }
             XIterator++;
             tilesAdded++;
             if(XIterator == 32){
                 XIterator = 0;
             }
         }
+    }
 
+    BuildObjectByLine(){
+        if(!this.lcdcFlag.isObjEnabled()) return;
+        const imgDataIndexCurrent = this.imgDataIndex;
+        this.ObjectAttributeMemory.forEach(obj => {
+            if(this.LY >= obj.YPosition && this.LY < obj.YPosition + 8){
+
+                var rowIndex = this.LY - obj.YPosition;
+                var tile = this.tileLoaderBank.getTile(obj.TileIndex);
+                var tileArray = this.runOamOperations(tile, obj.YFlip, obj.XFlip);
+                this.imgDataIndex = 4 * ((160 * (rowIndex + this.LY)) + obj.XPosition);
+                this.populateOutputLine(tileArray[rowIndex], obj.Palette, true);
+                if(rowIndex == 7){
+                    this.totalObjectsCurrentlyRendered++;
+                }
+            }
+        })
+        this.imgDataIndex = imgDataIndexCurrent;
+    }
+
+    buildObjectAttributes(){
+        this.ObjectAttributeMemory = new Array<ObjectAttribute>(40);
+        let oamArrayIndex = 0;
+        for(let i = 0xFE00; i < 0xFE9F; i+=4){
+            this.ObjectAttributeMemory[oamArrayIndex++] = new ObjectAttribute(
+                this.ram.read(i).value,
+                this.ram.read(i+1).value,
+                this.ram.read(i+2).value,
+                this.ram.read(i+3).value,
+            )
+        }
     }
 
     basicRender(){
-        var canvasContext = (<HTMLCanvasElement> document.getElementById("canvasScreen")).getContext("2d");
-        if(canvasContext !== null){
-            var canvas = canvasContext.canvas;
-            canvasContext?.clearRect(0,0,canvas.width,canvas.height);
+        if(this.canvasCtx !== null){
+            var canvas = this.canvasCtx.canvas;
+            this.canvasCtx?.clearRect(0,0,canvas.width,canvas.height);
             var z = new Uint8ClampedArray(this.imgDataOutput);
             let imgData : ImageData = new ImageData(z, 160);
-            canvasContext.putImageData(imgData,0,0);
+            this.canvasCtx.putImageData(imgData,0,0);
         }
+    }
+
+    getBgAndWindowTileMaps() : {background : TileMapManager, window : TileMapManager}{
+        var background;
+        var window;
+        let BGtilemap = this.lcdcFlag.getBgTileMapArea();
+        let windowTileMap = this.lcdcFlag.getWindowTileMapArea();
+        if(BGtilemap == 0x9C00){
+            background = this.tileMap9C00;
+        }
+        else{
+            background = this.tileMap9800;
+        }
+
+        if(windowTileMap == 0x9C00){
+            window = this.tileMap9C00;
+        }
+        else{
+            window = this.tileMap9800;
+        }        
+        return {background : background, window : window};
     }
 
     getImageData(){
@@ -377,37 +502,31 @@ export class PPU {
     {
         const colorIndex = (palette * 8) + (2 * index);
         if(!this.cgbModeEnabled){
-            var mPalette = this.ram.read(0xFF47).value;
-            var mArray = [
-                mPalette & 0b11,
-                (mPalette & 0b1100) >> 2,
-                (mPalette & 0b110000) >> 4,
-                (mPalette & 0b11000000) >> 6
-            ]
-            var color = mArray[index];
-            if(color == 0){
-                return {
-                    red : 255, blue : 255, green : 255
-                }
+            if(isObj){
+                var mPalette = this.ram.read(0xFF48 + palette).value;
+                this.nonCgbPalette = [
+                    mPalette & 0b11,
+                    (mPalette & 0b1100) >> 2,
+                    (mPalette & 0b110000) >> 4,
+                    (mPalette & 0b11000000) >> 6
+                ]   
             }
-
-            if(color == 1){
-                return {
-                    red : 150, blue : 150, green : 150
-                }
+            var color = this.nonCgbPalette[index];
+            var z : Color = new Color();
+            var outputColor = 0;
+            switch(color){
+                case 0:
+                    outputColor = 255;
+                    break;
+                case 1:
+                    outputColor = 150;
+                    break;
+                case 2: 
+                    outputColor = 60;
+                    break;
             }
-
-            if(color == 2){
-                return {
-                    red : 60, blue : 60, green : 60
-                }
-            }            
-
-            if(color == 3){
-                return {
-                    red : 0, blue : 0, green : 0
-                }
-            }
+            z.red = z.blue = z.green = outputColor;
+            return z;
         }
         if(isObj){
             var colorLowerHalf = this.PaletteRam.ObjPaletteRam[colorIndex];
@@ -449,14 +568,13 @@ export class PPU {
         }        
     }
     
-    populateOutputLine(tile: number[], XPosition : number, YPosition : number, palette : number, isObj : boolean = true){
+    populateOutputLine(tile: number[],  palette : number, isObj : boolean = true){
         for (let j = 0; j < tile.length; j++) {
             var color = this.getRgbColor(tile[j], palette, isObj);
             this.imgDataOutput[this.imgDataIndex++] = color.red;
             this.imgDataOutput[this.imgDataIndex++] = color.green;
             this.imgDataOutput[this.imgDataIndex++] = color.blue;
             this.imgDataOutput[this.imgDataIndex++] = 255;
-            // console.log(`${YPosition + (XPosition) + flatMarker} - ${YPosition + (XPosition) + flatMarker+1} - ${YPosition + (XPosition) + flatMarker+2} - ${YPosition + (XPosition) + 3+flatMarker}`)
         }           
     }    
 
@@ -492,6 +610,7 @@ export class PPU {
 
 
     async renderFailed(){
+        // this version SUCKS
         if(!this.ram.ramLoaded) {
             window.requestAnimationFrame(() => {this.renderFailed();});
         } 

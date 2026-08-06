@@ -7,6 +7,9 @@ import { Uint8 } from "../primitives/uint8";
 // import { dirname } from 'path';
 export class RomLoader{
     static async load(fileName: string, isStandAlone = false): Promise<Uint8Array> {
+        if(fileName.includes(" ")){
+            throw new Error("filename has a space in it, will not be loaded")
+        }
         let rom: Buffer;
         let fablob : Uint8Array | undefined = new Uint8Array();
         let RAM: Uint8Array;// = new Uint8Array(0x8000);

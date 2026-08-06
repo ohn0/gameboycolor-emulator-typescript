@@ -136,6 +136,7 @@ export class BitwiseOperationSolver{
             this.operationCost = this.operation >= 0x4 && this.operation <= 0x7
                 ? OPCODE_COST_12
                 : OPCODE_COST_16;
+            // console.log(`exe ${this.register.value} - ${this.operation}`);
             this.cpu.writeMemory(this.register.value);
             // this.cpu.setOperationCost(this.operationCost);
         } else {

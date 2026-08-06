@@ -34,7 +34,7 @@ export class Logger{
     }>;
 
     constructor(filename = "") {
-        this.messages = new Array<string>(0x10000);
+        this.messages = new Array<string>(100);
         this.messagesIndex = 0;
         this.timerRecord = new Array<string>();
         this.message = '';

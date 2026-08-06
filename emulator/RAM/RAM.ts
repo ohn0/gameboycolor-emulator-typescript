@@ -1,5 +1,6 @@
 import { Logger } from "../../logger/logger";
 import { Uint8 } from "../../primitives/uint8";
+import { CPU } from "../cpu/cpu";
 import { iMBC } from "../MemoryBankControllers/iMBC";
 
 export class RAM{
@@ -57,6 +58,9 @@ export class RAM{
             this.mbc.interceptWrite({ address, value });
         }
         else {
+            if(address == 0xFF41){
+                console.log(value)
+            }
             this.ram[address] = value;
         }
         // this.logger.logToConsole(`R: address: ${address.toString(16).toLocaleUpperCase().padStart(8, '0')}, value: ${value.toString(16).toLocaleUpperCase().padStart(8, '0')}`)

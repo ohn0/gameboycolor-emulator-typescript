@@ -178,6 +178,12 @@ export class CPU {
             ramArray: this.RAM.ram,
             ram: this.RAM.sharedRam
         })
+
+        // self.onmessage = (message) => {
+        //     if(message.data.action == "LY_UPDATE"){
+        //         this.RAM.write(0xFF44, message.data.value)
+        //     }
+        // }
         this.globalStart = Date.now();
     }
 
@@ -203,13 +209,23 @@ export class CPU {
                 this.updateTimers();
                 // this.operationCost--;
                 this.currentOperationCost++;
+                if(this.PpuDotCounter >= 456){
+                    this.sendMessage({
+                        action: "DRAW",
+                    })
+
+                    this.PpuDotCounter = 0;
+                }
                 continue;
             }
             this.currentOperationCost = this.operationCost = 0;
             this.interruptHandler.configure(this.readMemory(0xFFFF), this.readMemory(0xFF0F));
             // console.log("WHEEE " + this.RAM.read(0xFF44).value + " " + this.RAM.read(0xFF45).value)
-            if(this.RAM.read(0xFF44).value == 0){
-                this.requestVBlank();
+            // if(this.RAM.read(0xFF44).value == 0 && !this.vBlankInterruptRequested){
+            //     this.requestVBlank();
+            // }
+            if(this.RAM.read(0xFF44).value == this.RAM.read(0xFF45).value){ // LYC == LY
+                this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT);
             }
             //EI logic
             // shouldn't this be set to 8???
@@ -252,9 +268,15 @@ export class CPU {
             if (this.isHalting) {
                 if (this.globalTicks == this.limit) { this.isQuitting = true; }
                 this.isHalting = (this.interruptHandler.getInterruptFlag() & this.interruptHandler.getInterruptEnableFlag()) == 0;
+                if(this.routineLocation > -1){
+                    if(this.interruptHandler.getInterruptEnableFlag() > 0){
+                        this.isHalting = false;
+                    }
+                }
                 if (this.isHalting) {
                     //if halting, continue halting
                     this.setOperationCost(OPCODE_COSTS_T_STATES.OPCODE_COST_4);
+                    continue;
                 }
                 //if no longer halting(an interrupt is pending), check status of IME
                 
@@ -262,7 +284,6 @@ export class CPU {
                 //will go to next iteration, where interrupt will be handled.
 
                 //if IME is not set, behavior is dependent on whether interrupt is pending
-                continue;
             }
             if (this.routineLocation > 0) {
                 this.writeMemory(this.interruptHandler.getInterruptFlag(), 0xFF0F);
@@ -275,6 +296,9 @@ export class CPU {
                     this.push(this.PC);
                 }
                 this.configureProgramCounter(this.routineLocation);
+                if(this.vBlankInterruptRequested){
+                    this.vBlankInterruptRequested = false;
+                }
             }
 
             if (this.isHaltingBugActiveCycles == 2) {
@@ -284,6 +308,9 @@ export class CPU {
             }
             else { 
                 this.currentOpCode = this.read8bitValueUsingPC();
+                if(this.currentOpCode == 0xFE){
+                    // console.log("?");
+                }
             }
             if (this.opCodesLibrary[this.currentOpCode] === undefined) {
                 console.log("undefined OPcode: " + this.currentOpCode);
@@ -294,10 +321,9 @@ export class CPU {
                 // await this.PPU.render(); //renders a SINGLE frame
                 // window.requestAnimationFrame(() => {this.PPU.render()})
             }
-            // this.triggerStatInterrupt();
             // this.logger.logTimer(this.clock.getClockState(), this.readMemory(0xff05), this.readMemory(0xff06));
             // this.clock.updateControlState(controlStates.getControlState(this.readMemory(0xFF07)));
-
+            if(this.currentOpCode == 0x100){console.log("at 0x100")}
         }
         // this.logger.logString(testOutput);
         if(this.isQuitting){
@@ -1087,6 +1113,8 @@ export class CPU {
             value = value & 1;
         }
         else if(address == 0xFF40){
+            console.log("ff40 " 
+                + value + " " + this.getHexString(value) )
         }
         else if(address == 0xFF41){
         }
@@ -1457,9 +1485,6 @@ export class CPU {
         this.interruptHandler.requestInterrupt(source);
         const interruptFlag = this.interruptHandler.getInterruptFlag();
         this.writeMemory(interruptFlag, 0xFF0F);
-        if(source == INTERRUPT_SOURCES.INTERRUPT_VBLANK){
-            this.vBlankInterruptRequested = false;
-        }
     }
 
     public setOperationCost(cost: number) {
@@ -1469,7 +1494,7 @@ export class CPU {
             this.operationCost = cost;
             this.operationCostModified = true;
             this.speedLimiter += cost;
-            // this.PpuDotCounter += cost;
+            this.PpuDotCounter += cost;
         }
     }
 
@@ -1521,10 +1546,8 @@ export class CPU {
 
     requestVBlank() {
         if (!this.vBlankInterruptRequested) {
-            console.log("requesting VBLANK");
-            this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK);
+            // this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK);
             // this.RAM.write(0xFF44, 144);
-            this.vBlankInterruptRequested = true;            
         }        
     }
 
@@ -1565,7 +1588,7 @@ export class CPU {
         this.logger.logString(` TIMA : ${this.readMemory(0xFF05)}\n`);
     }
 
-    private getHexString(z : number){
+    getHexString(z : number){
         return z.toString(16).toLocaleUpperCase().padStart(2, '0')
     }
 }

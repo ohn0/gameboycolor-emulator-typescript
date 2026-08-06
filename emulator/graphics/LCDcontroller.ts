@@ -7,6 +7,8 @@ export class LCDController{
     }
 
     update(newValue : number){
+        if(this.value != newValue){
+        }
         this.value = newValue;
     }
 
@@ -19,9 +21,9 @@ export class LCDController{
     }
 
     isWindowEnabled() : boolean {
-        return (this.value & 0b00100000) > 0;
-    }
-
+        return (this.value & 0b00100000) > 0;   
+    }   
+    
     getAddressingMode() : number {
         return (this.value & 0b00010000) == 0 ? 0x8800 : 0x8000;
     }
@@ -39,7 +41,7 @@ export class LCDController{
     }
 
     BgWinPriority() : boolean {
-        return (this.value & 0b1) == 1;
+        return (this.value & 0b00000001) == 1;
     }
 
 }

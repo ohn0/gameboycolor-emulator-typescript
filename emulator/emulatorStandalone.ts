@@ -45,7 +45,7 @@ const haltBugTester: romModule[] = [
 ]
 
 const memTimingTester: romModule[] = [
-    {fileName : 'mem_timing.gb', loopLimit: 0xFFFFFF}
+    {fileName : 'mem_timing.gb', loopLimit: 0xFFFFFFFFFF}
 ]
 
 const instrTimingTester: romModule[] = [
@@ -53,7 +53,19 @@ const instrTimingTester: romModule[] = [
 ]
 
 const interruptTimeTester: romModule[] = [
-    { fileName: 'interrupt_time.gb', loopLimit: 0xFFFFFF } //requires CGB so maybe still failing
+    { fileName: 'interrupt_time.gb', loopLimit: 0xFFFFFFFF } //requires CGB so maybe still failing
+]
+
+const tetrisTest : romModule[] = [
+    {fileName : 'tetris.gb', loopLimit: 0xFFFFFFFFF}
+]
+
+const zeldaTest : romModule[] = [
+    {fileName : 'zelda.gb', loopLimit: 0xFFFFFFFFF}
+]
+
+const dmgAcidTest : romModule[] = [
+    {fileName : 'dmg-acid2.gb', loopLimit: 0xFFFFFFFFF}
 ]
 
 var cpuWorkerStr = `
@@ -91,7 +103,6 @@ export async function initEmulator(rom : string, loopLimit : number){
 
     let cpuWorker = new Worker(
     URL.createObjectURL(blob), {type: "module"});
-    console.log('wtf');
     cpuWorker.postMessage({action: "UPDATE", 
     rom: romData,
     loopLimit : loopLimit})
@@ -120,11 +131,18 @@ export async function runCpu(z : romModule[]) {
     })
 }
 
+// run(mbcTester);
+run(dmgAcidTest);
+// run(tetrisTest);
+// run(zeldaTest);
+// run(blarggTests);
+
+
+
 // fetch(`/getRom/${mbcTester[0].fileName}`).then(z => console.log(z.bytes()))
 // run(blarggTests);
 // run(memTimingTester);
 // run(blarggTests);
-run(mbcTester);
 // run(haltBugTester);
 // run(memTimingTester);
 // run(interruptTimeTester);
