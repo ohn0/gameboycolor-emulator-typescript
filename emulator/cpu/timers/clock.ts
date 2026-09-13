@@ -10,8 +10,10 @@ export class clock{
     private TIMAIncrementRateCycles!: number;
     private dividerUpdater: () => void;
     private counterUpdater: () => void;
+    private ppuUpdater!: () => void;
     public controlState!: controlState;
     private TACmodified: boolean;
+    private divClockInterval : number = 256;
     constructor(divHandler : () => void, counterHandler : () => void, cState : controlState) {
         this.clock = this.ticks = this.cycles = this.timer = 0;
         this.dividerUpdater = divHandler;
@@ -20,6 +22,15 @@ export class clock{
         this.updateControlState(cState);
     }
 
+    public setHandlers(divHandler : () => void, counterHandler : () => void){
+        this.dividerUpdater = divHandler;
+        this.counterUpdater = counterHandler;
+        this.ppuUpdater = () => {}
+    }
+
+    public setPpuHandler(ppuHandler : () => void){
+        this.ppuUpdater = ppuHandler;
+    }
     public tick(currentTick: number): boolean {
         // if (this.singleSecondCounter > this.FREQUENCY) {
         //     if (Date.now() - this.initialTime > 1000) {
@@ -30,16 +41,20 @@ export class clock{
         // }
         // this.singleSecondCounter++;
         this.ticks++;
-        if (this.ticks % 4 == 0) {
+        if ((this.ticks & 3) == 0) {
             this.cycles++;
             this.TACmodified = false;
         }
-        if (this.ticks % 256 == 0) this.dividerUpdater();
-        if ((this.cycles) % (this.TIMAIncrementRateCycles) == 0
+        if ((this.ticks & this.divClockInterval-1) == 0) this.dividerUpdater();
+        if (((this.cycles) & (this.TIMAIncrementRateCycles-1)) == 0
             && this.controlState.isRunning
             && !this.TACmodified) {
             this.counterUpdater();
             this.TACmodified = true;
+        }
+
+        if (this.ticks % 456 == 0){
+            this.ppuUpdater();
         }
         return true;
     }
@@ -75,5 +90,9 @@ export class clock{
             incrementRate: this.TIMAIncrementRateTicks,
             cState: this.controlState
         }
+    }
+
+    public enableDoubleSpeed(){
+        this.divClockInterval = 128;
     }
 }

@@ -36,7 +36,7 @@ const c = Bun.serve({
         },
         "/worker": {
             async GET(f){
-                var file = Bun.file((".\\out\\cpu_worker.js"));
+                var file = Bun.file(("worker.js"));
                 var response = new Response(file); 
                 response.headers.append("Cross-Origin-Embedder-Policy", "require-corp");
                 response.headers.append("Cross-Origin-Opener-Policy", "same-origin");                

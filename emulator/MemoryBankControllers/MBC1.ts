@@ -67,10 +67,10 @@ export class MBC1 implements iMBC{
         }
 
         if (this.RomSize <= this.RamBankSizeThreshold) {
-            this.ramBanks.forEach((ramBank) => {
-                ramBank = new Bank();
-                ramBank.romBank = new Uint8Array(0x2000);
-            });
+            for(let i = 0; i < 4; i++){
+                this.ramBanks[i] = new Bank();
+                this.ramBanks[i].romBank = new Uint8Array(0x2000);
+            }
         }
         else {
             this.ramBanks[0] = new Bank();

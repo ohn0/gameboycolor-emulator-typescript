@@ -12,19 +12,22 @@ export class ObjectAttribute {
     XFlip : boolean = false;
     FetchFromBank1 : boolean = false;
     Palette : number = -1;
+    isCgbMode : boolean = false;
 
     constructor(
         YPosition : number,
         XPosition : number,
         TileIndex : number,
         Attributes: number,
+        cgbModeEnabled : boolean
     ){
         this.YPosition = YPosition;
         this.XPosition = XPosition;
         this.TileIndex = TileIndex;
         this.Attributes = Attributes;
-        this.generateHash().then(c => this.objHash = new Uint8Array(c).toHex());
+        // this.generateHash().then(c => this.objHash = new Uint8Array(c).toHex());
         this.expandAttributeByte();
+        this.isCgbMode = cgbModeEnabled;
     }
 
     private  generateHash() : Promise<ArrayBuffer> {
@@ -43,6 +46,11 @@ export class ObjectAttribute {
         this.YFlip = (this.Attributes & 0x40) > 0;
         this.XFlip = (this.Attributes & 0x20) > 0;
         this.FetchFromBank1 = (this.Attributes & 0x8) > 0;
-        this.Palette = (this.Attributes & 0x7)
+        if(this.isCgbMode){
+            this.Palette = (this.Attributes & 0x7);
+        }
+        else{
+            this.Palette = (this.Attributes & 0b10000) == 0 ? 0 : 1
+        }
     }
 }

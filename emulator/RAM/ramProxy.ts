@@ -3,7 +3,7 @@ import { RAM } from "./RAM";
 
 export class RamProxy {
 
-    private cpuWorker : Worker;
+    // private cpuWorker : Worker;
     private ram! : RAM;
     private _ramLoaded: boolean = false;
     private _sharedArray!: Uint8Array;
@@ -21,9 +21,8 @@ export class RamProxy {
         this._ramLoaded = value;
     }
     
-    constructor(cpuWorker : Worker, ram : RAM)
+    constructor(ram : RAM)
     {
-        this.cpuWorker = cpuWorker;
         this.ram = ram;
         this.ramLoaded = true;
     }
@@ -52,21 +51,20 @@ export class RamProxy {
 
     readBlock(start : number, end : number) : Uint8Array {
         let output : Uint8Array = new Uint8Array(end - start);
-        // console.log("-----------------------------ZZZ_----------------------------------------------")
         for(let i = 0; i < (end - start); i++){
             output[i] = this.ram.read(start + i).value;
         }
-        var slice = this.sharedArray.slice(start, end);
-        for(let i = 0; i < slice.length; i++){
-            if(slice[i] != output[i]){
-                // console.log(`mistmatch detected slice : ${slice[i]} - output : ${output[i]}, start:end = ${start}:${end}`)
-                // console.log(i);
-                // console.log(output);
-                // console.log(slice);
-            }
-        }
 
         if(this.useSAB){
+            var slice = this.sharedArray.slice(start, end);
+            for(let i = 0; i < slice.length; i++){
+                if(slice[i] != output[i]){
+                    // console.log(`mistmatch detected slice : ${slice[i]} - output : ${output[i]}, start:end = ${start}:${end}`)
+                    // console.log(i);
+                    // console.log(output);
+                    // console.log(slice);
+                }
+            }            
             return slice;
         }
         return output;
@@ -89,6 +87,13 @@ export class RamProxy {
 
     loadFromRam(ram : Uint8Array){
         // this.ram.ram = ram;
+    }
+
+    runDmaHblankTranfer(){
+        if(this.ram.isDmaHblankTransferActive){
+            console.log("dma hblank transfer ongoing")
+            this.ram.dmaHblankTransfer();
+        }
     }
 
 }

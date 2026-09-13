@@ -30,7 +30,7 @@ export class MBC0 implements iMBC{
     configure(gameData: Uint8Array, logger: Logger): void {
         this.RomSize = mbcCreator.getRomSize(gameData[0x148]);
         this.RamSize = mbcCreator.getRamSize(gameData[0x149]);
-        this.initialBank.romBank = gameData.slice(0, 0x7FFF);
+        this.initialBank.romBank = gameData;
         this.cartridge = new Uint8Array(gameData);
     }
 

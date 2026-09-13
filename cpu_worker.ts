@@ -1,4 +1,5 @@
 import { CPU } from "./emulator/cpu/cpu";
+import { clock } from "./emulator/cpu/timers/clock";
 import { mbcCreator } from "./emulator/MemoryBankControllers/mbcCreator";
 import { RAM } from "./emulator/RAM/RAM";
 import { Logger } from "./logger/logger";
@@ -10,7 +11,7 @@ self.onmessage = (msg) => {
         let loadedRom = mbcCreator.getMBC(msg.data.rom, logger);
         let ram = new RAM(loadedRom, logger);
         ram.useSharedBufferAsSource();
-        let cpu = new CPU(ram, logger, true);
+        let cpu = new CPU(ram, logger,null, true);
         cpu.debugState = true;
         cpu.configureDebugStateLoopLimit(msg.data.loopLimit)
         cpu.loop();

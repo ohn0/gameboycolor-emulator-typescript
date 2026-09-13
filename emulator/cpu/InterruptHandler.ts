@@ -1,4 +1,5 @@
 import { Logger } from '../../logger/logger';
+import { RAM } from '../RAM/RAM';
 import { Uint8 } from './../../primitives/uint8';
 import { Interrupt } from './interrupt';
 export class InterruptHandler{
@@ -7,6 +8,7 @@ export class InterruptHandler{
     private interruptEnableFlag: Uint8;
     private interruptFlag: Uint8;
     private _masterInterruptFlag = false;
+    private ram : RAM;
     private logger: Logger;
     
     public get masterInterruptFlag() {
@@ -16,7 +18,8 @@ export class InterruptHandler{
         this._masterInterruptFlag = value;
     }
     
-    constructor(logger: Logger) {
+    constructor(ram : RAM, logger: Logger) {
+        this.ram = ram;
         this.logger = logger;
         this.interruptEnableFlag = new Uint8(0);
         this.interruptFlag = new Uint8(0);
@@ -34,6 +37,8 @@ export class InterruptHandler{
     public configure(IEFlag: number, IF: number) : void {
         this.interruptEnableFlag.value = (IEFlag & 0x1F);
         this.interruptFlag.value = (IF & 0x1F);
+        this.ram.write(0xFFFF, this.interruptEnableFlag.value);
+        this.ram.write(0xFF0F, this.interruptFlag.value);
         this.mapToVector();
     }
 
@@ -44,6 +49,7 @@ export class InterruptHandler{
 
     public configureInterruptFlag(IF: number) {
         this.interruptFlag.value = (IF & 0x1F);
+        this.ram.write(0xFF0F, this.interruptFlag.value);
         this.mapToVector();
     }
 
@@ -51,6 +57,7 @@ export class InterruptHandler{
         const interrupt = this.interruptVector.find(i => i.name == interruptKey);
         if (interrupt == undefined) throw ("Undefined interrupt encountered.");
         this.interruptEnableFlag.value |= (1 << interrupt.bitIndex);
+        this.ram.write(0xFFFF, this.interruptEnableFlag.value);
         interrupt.setInterruptState(((this.interruptEnableFlag.value >> interrupt.bitIndex) & 1) > 0);
     }
 
@@ -58,6 +65,7 @@ export class InterruptHandler{
         const interrupt = this.interruptVector.find(i => i.name == interruptKey);
         if (interrupt == undefined) throw ("Undefined interrupt encountered.");
         this.interruptEnableFlag.value &= (~(1 << interrupt.bitIndex));
+        this.ram.write(0xFFFF, this.interruptEnableFlag.value);
         interrupt.setInterruptState(((this.interruptEnableFlag.value >> interrupt.bitIndex) & 1) > 0);
     }
 
@@ -65,6 +73,7 @@ export class InterruptHandler{
         const interrupt = this.interruptVector.find(i => i.name == interruptKey);
         if (interrupt == undefined) throw ("Undefined interrupt encountered.");
         this.interruptFlag.value |= (1 << interrupt.bitIndex);
+        this.ram.write(0xFF0F, this.interruptFlag.value);
         interrupt.setRequested();
     }
 
@@ -90,7 +99,8 @@ export class InterruptHandler{
     public resetInterrupts(interruptState : number) {
         this.interruptEnableFlag.value = interruptState;
         this.masterInterruptFlag = true;
-    }
+        this.ram.write(0xFFFF, this.interruptEnableFlag.value);
+    }   
 
     private mapToVector(): void {
         const IF = this.interruptFlag;

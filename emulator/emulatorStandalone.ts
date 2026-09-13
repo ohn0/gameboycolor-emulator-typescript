@@ -8,6 +8,7 @@ import { RomLoader } from "./romLoader";
 import { Logger } from "../logger/logger";
 import { JoyPad } from './joypad/joypad';
 import { PPU } from './graphics/ppu';
+import { gbcExecutor } from './gbcExecutor';
 const resourceLocation = "..\\resources";
 interface romModule  {
     fileName: string,
@@ -24,7 +25,7 @@ const blarggTests: romModule[] = [
     // {fileName: '01-read_timing.gb', loopLimit: 4000000 },
     // {fileName: '02-write_timing.gb', loopLimit: 4000000 },
     // {fileName: '01-special.gb', loopLimit: 20000000},
-    {fileName: '02-interrupts.gb', loopLimit: 4000000},
+    // {fileName: '02-interrupts.gb', loopLimit: 4000000},
     // {fileName: '03-op sp,hl.gb', loopLimit: 20000000},
     // {fileName: '04-op r,imm.gb', loopLimit: 20000000},
     // {fileName: '05-op rp.gb', loopLimit: 20000000},
@@ -45,7 +46,7 @@ const haltBugTester: romModule[] = [
 ]
 
 const memTimingTester: romModule[] = [
-    {fileName : 'mem_timing.gb', loopLimit: 0xFFFFFF}
+    {fileName : 'mem_timing.gb', loopLimit: 0xFFFFFFFFFF}
 ]
 
 const instrTimingTester: romModule[] = [
@@ -53,7 +54,23 @@ const instrTimingTester: romModule[] = [
 ]
 
 const interruptTimeTester: romModule[] = [
-    { fileName: 'interrupt_time.gb', loopLimit: 0xFFFFFF } //requires CGB so maybe still failing
+    { fileName: 'interrupt_time.gb', loopLimit: 0xFFFFFFFF } //requires CGB so maybe still failing
+]
+
+const tetrisTest : romModule[] = [
+    {fileName : 'tetris.gb', loopLimit: 0xFFFFFFFFF}
+]
+
+const zeldaTest : romModule[] = [
+    {fileName : 'zelda.gb', loopLimit: 0xFFFFFFFFF}
+]
+
+const dmgAcidTest : romModule[] = [
+    {fileName : 'dmg-acid2.gb', loopLimit: 0xFFFFFFFFF}
+]
+
+const cgbAcidTest : romModule[] = [
+    {fileName : 'cgb-acid2.gbc', loopLimit: 0xFFFFFFFFF}
 ]
 
 var cpuWorkerStr = `
@@ -75,14 +92,24 @@ import { Logger } from "./logger/logger";
   };
 })();
 `
+export async function initExecutor(rom :string, loopLimit : number){
+    const logger = new Logger("logOutput");
+    var romData = await RomLoader.load(rom);
+    const loadedRom = mbcCreator.getMBC(romData, logger);
+    const ram = new RAM(loadedRom, logger);
+    var binData = await RomLoader.load("dmg_boot.bin");
+    ram.loadBin(binData);
+    let executor = new gbcExecutor(ram);
+
+    executor.execute();
+}
 
 export async function initEmulator(rom : string, loopLimit : number){
     const logger = new Logger("logOutput");
     var romData = await RomLoader.load(rom);
     const loadedRom = mbcCreator.getMBC(romData, logger);
-    
-    const interruptHandler = new InterruptHandler(logger);
     const ram = new RAM(loadedRom, logger);
+    const interruptHandler = new InterruptHandler(ram, logger);
     const joyPad = new JoyPad(ram, interruptHandler, logger);
     var fileText = await (await fetch('/worker')).text();
     var blob = new Blob([fileText], {type : "text/javascript"});
@@ -91,11 +118,10 @@ export async function initEmulator(rom : string, loopLimit : number){
 
     let cpuWorker = new Worker(
     URL.createObjectURL(blob), {type: "module"});
-    console.log('wtf');
     cpuWorker.postMessage({action: "UPDATE", 
     rom: romData,
     loopLimit : loopLimit})
-    const ppu = new PPU(cpuWorker, ram, logger);
+    const ppu = new PPU(ram, logger);
 }
 
 export async function run(z : romModule[]) {
@@ -106,25 +132,49 @@ export async function run(z : romModule[]) {
     })
 }
 
+export async function runExecutor(z : romModule[]){
+    z.forEach(async test => {
+        await initExecutor(test.fileName, test.loopLimit);
+        const start = performance.now();
+        const end = performance.now();
+    })
+}
 
 export async function runCpu(z : romModule[]) {
     z.forEach(async test => {
         const logger = new Logger("logOutput");
         var romData = await RomLoader.load(test.fileName);
+        var binData = await RomLoader.load("dmg_boot.bin");
         const loadedRom = mbcCreator.getMBC(romData, logger);
-        const interruptHandler = new InterruptHandler(logger);
         const ram = new RAM(loadedRom, logger);
-        var cpu = new CPU(ram, logger, true);
+        // ram.loadBin(binData);
+        const interruptHandler = new InterruptHandler(ram, logger);
+        var cpu = new CPU(ram, logger, null, true);
         cpu.debugState = true;
         cpu.loop();
     })
 }
 
+// runExecutor(mbcTester);
+runExecutor(dmgAcidTest);
+// runExecutor(cgbAcidTest);
+// runExecutor(zeldaTest);
+// runExecutor(tetrisTest);    
+// runExecutor(haltBugTester);
+// GET halt working
+// check and make sure interrupts are not constantly firing
+
+// run(mbcTester);
+// run(dmgAcidTest);
+// run(tetrisTest);
+// run(zeldaTest);
+// run(blarggTests);
+
+
 // fetch(`/getRom/${mbcTester[0].fileName}`).then(z => console.log(z.bytes()))
 // run(blarggTests);
 // run(memTimingTester);
 // run(blarggTests);
-run(mbcTester);
 // run(haltBugTester);
 // run(memTimingTester);
 // run(interruptTimeTester);
