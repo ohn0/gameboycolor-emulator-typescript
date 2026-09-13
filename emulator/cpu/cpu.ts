@@ -16,6 +16,8 @@ import { Interrupt } from './interrupt';
 import { RAM } from '../RAM/RAM';
 import { Logger } from '../../logger/logger';
 import { Uint16 } from '../../primitives/uint16';
+import { dmaTransferer } from '../RAM/dmaTransferer';
+import { JoyPad } from '../joypad/joypad';
 
 export class CPU {
     private RAM: RAM;
@@ -47,7 +49,7 @@ export class CPU {
     private clock: clock;
     // private PPU : PPU;
     private controlState: controlState;
-    private interruptHandler: InterruptHandler;
+    private interruptHandler!: InterruptHandler;
     private limit!: number;
     private gameBoyType = "DMG";
     private isQuitting = false;
@@ -75,11 +77,13 @@ export class CPU {
     private PpuDotCounter : number = 0;
     private globalStart : number = 0;
     private tz! : SharedArrayBuffer;
+    private doubleSpeedEnabled : boolean = false;
     logger: Logger;
 
     debugState: boolean;
-
-    constructor(ram: RAM, logger:Logger, skipBoot = false) {
+    cyclesToRunBeforeFrameDraw : number = 0;
+    joypad!: JoyPad;
+    constructor(ram: RAM, logger:Logger, _clock : clock | null, skipBoot = false) {
         this.logger = logger;
         this.A = new Register8bit(0, "A");
         this.B = new Register8bit(0, "B");
@@ -96,12 +100,12 @@ export class CPU {
         // this.tz = new SharedArrayBuffer(0x10000);
         this.SP = new StackPointer(0xFF,0xFF, "SP");
         this.PC = new ProgramCounter("PC");
-        this.interruptHandler = new InterruptHandler(this.logger);
-        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK, 0x40, 1, 0));
-        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT, 0x48, 2, 1));
-        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER, 0x50, 3, 2));
-        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_SERIAL, 0x58, 4, 3));
-        this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_JOYPAD, 0x60, 5, 4));
+        // this.interruptHandler = new InterruptHandler(this.logger);
+        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK, 0x40, 1, 0));
+        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT, 0x48, 2, 1));
+        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER, 0x50, 3, 2));
+        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_SERIAL, 0x58, 4, 3));
+        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_JOYPAD, 0x60, 5, 4));
         this.RAM = ram;
         // this.PPU = new PPU(this.RAM, this.interruptHandler, this.logger);
         this.debugState = false;
@@ -157,17 +161,35 @@ export class CPU {
         this.controlState = controlStates.getControlState(this.readMemory(0xFF07));
         this.divider = new divider();
         this.counter = new counter(this.readMemory(0xFF06));
-        this.clock = new clock(
-            () => {
-                this.divider.incrementCounter();
-                this.RAM.write(this.divider.location, this.divider.registerCounter);
-            },
-            () => {
-                const currentTick = this.readMemory(0xFF05);
-                const updatedTick = this.counter.tick(currentTick);
-                this.writeMemory(updatedTick, 0xFF05);
-            },
-            this.controlState); 
+
+        if(_clock != null){
+            this.clock = _clock;
+            this.clock.controlState = this.controlState;
+            this.clock.setHandlers(
+                () => {
+                    this.divider.incrementCounter();
+                    this.RAM.write(this.divider.location, this.divider.registerCounter);
+                },
+                () => {
+                    const currentTick = this.readMemory(0xFF05);
+                    const updatedTick = this.counter.tick(currentTick);
+                    this.writeMemory(updatedTick, 0xFF05);
+                },            
+            )            
+        }
+        else{
+            this.clock = new clock(
+                () => {
+                    this.divider.incrementCounter();
+                    this.RAM.write(this.divider.location, this.divider.registerCounter);
+                },
+                () => {
+                    const currentTick = this.readMemory(0xFF05);
+                    const updatedTick = this.counter.tick(currentTick);
+                    this.writeMemory(updatedTick, 0xFF05);
+                },
+                this.controlState); 
+        }
 
         this.populateOpcodes();
         // this.PPU = ppu;
@@ -185,6 +207,8 @@ export class CPU {
         //     }
         // }
         this.globalStart = Date.now();
+        // this.doubleSpeedEnabled = true;
+
     }
 
     async loop() {
@@ -193,40 +217,27 @@ export class CPU {
         // this.operationCost = 0;
         var startTime = Date.now();
         var start = startTime;
-        while (!this.isQuitting) {
+        if(this.cyclesToRunBeforeFrameDraw <= 0){
+            throw(`cyclesToRunBeforeFrameDraw not set`);
+        }
+        this.speedLimiter = 0;
+        let lastLineLycInterruptCalled : number = -1;
+        let vBlankInterruptTriggerCalled : boolean = false;
+        while (!this.isQuitting && this.speedLimiter <= this.cyclesToRunBeforeFrameDraw) {
             this.operationCostModified = false;
-            this.logger.configureLogging(this.globalTicks);
-            if(this.speedLimiter >= 8388608){
-                var currentTime = Date.now();
-                var timeToNextSecond = (start + 1000) - currentTime;
-                self.setTimeout(() => {this.loop();}, timeToNextSecond);
-                this.speedLimiter = 0;
-                break;
-            }
             this.globalTicks++;
             if (this.currentOperationCost != this.operationCost) {
                 this.clock.tick(0)
                 this.updateTimers();
-                // this.operationCost--;
                 this.currentOperationCost++;
-                if(this.PpuDotCounter >= 456){
-                    this.sendMessage({
-                        action: "DRAW",
-                    })
-
-                    this.PpuDotCounter = 0;
-                }
                 continue;
             }
             this.currentOperationCost = this.operationCost = 0;
             this.interruptHandler.configure(this.readMemory(0xFFFF), this.readMemory(0xFF0F));
-            // console.log("WHEEE " + this.RAM.read(0xFF44).value + " " + this.RAM.read(0xFF45).value)
-            // if(this.RAM.read(0xFF44).value == 0 && !this.vBlankInterruptRequested){
+            // if(this.RAM.read(0xFF44).value == 144 && !vBlankInterruptTriggerCalled){
             //     this.requestVBlank();
+            //     vBlankInterruptTriggerCalled = true;
             // }
-            if(this.RAM.read(0xFF44).value == this.RAM.read(0xFF45).value){ // LYC == LY
-                this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT);
-            }
             //EI logic
             // shouldn't this be set to 8???
             if (this.enableInterruptsInNcycles > 0) {
@@ -236,33 +247,13 @@ export class CPU {
                 }
             }
 
+            // if(this.joypad.buttonPressed){
+            //     this.joypad.buttonPressed = false;
+            //     this.interruptHandler.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_JOYPAD);
+            // }
+
             //check for interrupts and service them
 
-            if (this.debugState) {
-                // this.logState(); //THIS SHIT GETS SLOW AS FUCCCCCK on BUN
-
-                if (this.globalTicks > this.limit) { this.isQuitting = true; }
-                if (this.readMemory(0xFF02) == 0x81) { 
-                    this.writeMemory(0x00, 0xFF02);
-                    let outputChar = this.readMemory(0xFF01);
-                    if (outputChar == 32) {
-                        outputChar = 10;
-                    }
-                    //handle conversion for tests because there is no ascii char for values greater than 9
-                    if (outputChar >= 58 && outputChar <= 64) {
-                        outputChar = 10 + (58 - outputChar);
-                    
-                    }
-                    var c = String.fromCharCode(outputChar);
-                    if(c == '\n'){
-                        this.logger.logToConsole(testOutput);
-                        testOutput = ''
-                    }
-                    else {
-                        testOutput += c;
-                    }                    
-                }
-            }
             this.routineLocation = this.interruptHandler.handle();
 
             if (this.isHalting) {
@@ -317,13 +308,32 @@ export class CPU {
             } else {
                 this.opCodesLibrary[this.currentOpCode]();
             }
-            if(this.clock.getTicks() % 456 == 0){
-                // await this.PPU.render(); //renders a SINGLE frame
-                // window.requestAnimationFrame(() => {this.PPU.render()})
-            }
-            // this.logger.logTimer(this.clock.getClockState(), this.readMemory(0xff05), this.readMemory(0xff06));
-            // this.clock.updateControlState(controlStates.getControlState(this.readMemory(0xFF07)));
-            if(this.currentOpCode == 0x100){console.log("at 0x100")}
+
+            if (this.debugState) {
+                // this.logState(); //THIS SHIT GETS SLOW AS FUCCCCCK on BUN
+
+                if (this.globalTicks > this.limit) { this.isQuitting = true; }
+                if (this.readMemory(0xFF02) == 0x81) { 
+                    this.writeMemory(0x00, 0xFF02);
+                    let outputChar = this.readMemory(0xFF01);
+                    if (outputChar == 32) {
+                        outputChar = 10;
+                    }
+                    //handle conversion for tests because there is no ascii char for values greater than 9
+                    if (outputChar >= 58 && outputChar <= 64) {
+                        outputChar = 10 + (58 - outputChar);
+                    
+                    }
+                    var c = String.fromCharCode(outputChar);
+                    if(c == '\n'){
+                        this.logger.logToConsole(testOutput);
+                        testOutput = ''
+                    }
+                    else {
+                        testOutput += c;
+                    }                    
+                }
+            }            
         }
         // this.logger.logString(testOutput);
         if(this.isQuitting){
@@ -1008,7 +1018,7 @@ export class CPU {
     }
 
     shouldQuit(): boolean{
-        return false;   
+        return this.isQuitting;   
     }
 
     executeOpcode(code: number) {
@@ -1065,6 +1075,9 @@ export class CPU {
             this.counter.updateModulo(value);
         }
         else if (address == 0xFFFF) {
+            // if((0b00010001 & value) > 0){
+            //     console.log("?");
+            // }
             this.interruptHandler.configureInterruptEnableFlag(value);
         }
         else if (address == 0xFF0F) {
@@ -1112,25 +1125,62 @@ export class CPU {
             console.log("changing banks to " + (value & 1));
             value = value & 1;
         }
-        else if(address == 0xFF40){
-            console.log("ff40 " 
-                + value + " " + this.getHexString(value) )
-        }
+        // else if(address == 0xFF40){
+        //     console.log("ff40 " 
+        //         + value + " " + this.getHexString(value) )
+        // }
         else if(address == 0xFF41){
         }
         else if(address == 0xFF45){
         }
+        else if(address == 0xFF46){
+            var dmaSource = value * 0x100;
+            var destination = 0xFE00;
+            // while(destination <= 0xFE9F){
+            //     this.RAM.write(destination, this.RAM.read(dmaSource).value);
+            //     destination++;
+            //     dmaSource++;
+            // }
+            this.RAM.dmaTransfer(dmaSource, destination, 0xFE9F - 0xFE00 + 1)
+        }
         else if(address == 0xFF55){
             var dmaSource = 0xFFF0 & (new Uint16(this.RAM.read(0xFF51).value, this.RAM.read(0xFF52).value)).get();
-            var dmaDestination = 0x0FF0 & (new Uint16(this.RAM.read(0xFF53).value, this.RAM.read(0xFF54).value)).get();
+            var dmaDestination = 0x1FF0 & (new Uint16(this.RAM.read(0xFF53).value, this.RAM.read(0xFF54).value)).get();
             
-            var transferLength = ((value & 0x7F) / 0x10)-1;
-            var transferMode = value & 0b10000000 // dont really need to know which mode because we ignore HBLANKS
-
-            var data = new Uint8Array(transferLength);
-            for(let i = 0; i < transferLength; i++){
-                data[i] = this.RAM.read(dmaSource + 1).value;
+            var transferLength = value & 0x7F
+            var transferMode = value & 0b10000000 
+            if(transferMode == 0){
+                for(let i = 0; i < transferLength; i++){
+                    this.RAM.write(dmaDestination, this.RAM.read(dmaSource).value);
+                    dmaSource++;
+                    dmaDestination++;
+                }
+            }else{
+                this.RAM.isDmaHblankTransferActive = true;
+                var transferer = new dmaTransferer(dmaSource, dmaDestination, transferLength, 0x10);
+                this.RAM.configureDmaHblankTransfer(transferer);
             }
+        }
+        else if(address == 0xFF00){
+            var buttonStateModified = false;
+            if(value == this.joypad.ResetState){
+                this.joypad.resetButtons();
+                value |= 0xF;
+            }
+
+            var buttonType = value == this.joypad.DpadState ? "DPAD" :  
+                value == this.joypad.ButtonState ? "BUTTON" : "";
+
+            if(buttonType == "DPAD" || buttonType == "BUTTON"){
+                for(const v of this.joypad.buttonMapping.values()){
+                    if(v.buttonType == buttonType && v.isPressed){
+                        value = v.value;
+                        buttonStateModified = true;
+                    }
+                }
+            }
+
+            if(!buttonStateModified) value |= 0xF;
         }
         if(!ramLocked){
             this.RAM.write(address, value);
@@ -1488,6 +1538,9 @@ export class CPU {
     }
 
     public setOperationCost(cost: number) {
+        if(this.doubleSpeedEnabled && cost > 1){
+            cost = cost / 2;
+        }
         //only update operation's cost if it has not been modified this fetch/decode cycle.
         //set operationCostModified to false during the end of the CPU loop
         if (!this.operationCostModified) {
@@ -1545,10 +1598,8 @@ export class CPU {
     }
 
     requestVBlank() {
-        if (!this.vBlankInterruptRequested) {
-            // this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK);
+        this.requestInterrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK);
             // this.RAM.write(0xFF44, 144);
-        }        
     }
 
     triggerStatInterrupt() {
@@ -1556,6 +1607,13 @@ export class CPU {
         this.statInterruptRequested = true;
     }
 
+    initInterruptHandler(interruptHandler : InterruptHandler){
+        this.interruptHandler = interruptHandler;
+    }
+
+    initJoyPad(joypad : JoyPad){
+        this.joypad = joypad;
+    }
 
     private logState() {
         this.logger.logRegister8bit(this.A);
@@ -1591,4 +1649,5 @@ export class CPU {
     getHexString(z : number){
         return z.toString(16).toLocaleUpperCase().padStart(2, '0')
     }
+
 }

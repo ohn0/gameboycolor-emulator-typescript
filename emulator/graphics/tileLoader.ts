@@ -5,6 +5,8 @@ import { vramBank } from "./vramBank";
 export class TileLoader{
     tileSetBank0 : Array<Tile>;
     tileSetBank1 : Array<Tile>;
+    objectSetBank0 : Array<Tile>;
+    objectSetBank1 : Array<Tile>;
     bgWinAddressingMode = 0x8000;
     objectAddressingMode = 0x8000;
     currentBank : number;
@@ -13,6 +15,8 @@ export class TileLoader{
     constructor(vram : vramBank){
         this.tileSetBank0 = new Array<Tile>(256);
         this.tileSetBank1 = new Array<Tile>(256);
+        this.objectSetBank0 = new Array<Tile>(256);
+        this.objectSetBank1 = new Array<Tile>(256);
         this.currentBank = 0;
         this.vram = vram;
     }    
@@ -23,11 +27,7 @@ export class TileLoader{
         this.vram = vram;
         this.currentBank = currentBank;
         let readMode = lcdcFlag.getAddressingMode();
-
         this.bgWinAddressingMode = readMode == 0x8000 ? 0x8000 : 0x9000;
-        if(lcdcFlag.isObjEnabled()){
-            this.populateObjectData();
-        }
         this.populateBgWinData();
     }
 
@@ -35,18 +35,18 @@ export class TileLoader{
         let marker = 0;
         let indexMarker = 0;
         if(this.currentBank == 0){
-            this.tileSetBank0 = [];
+            this.objectSetBank0 = [];
             while(marker < 0x1000){
                 // this.tileSetBank0.push(this.buildTile(marker,0));
-                this.tileSetBank0[indexMarker++] = this.buildTile(marker,0)
+                this.objectSetBank0[indexMarker++] = this.buildTile(marker,0)
                 marker += 16;
             }
         }
         else{
-            this.tileSetBank1 = [];
+            this.objectSetBank1 = [];
             while(marker < 0x1000){
-                // this.tileSetBank1.push(this.buildTile(marker,1));
-                this.tileSetBank1[indexMarker++] = this.buildTile(marker,1)
+                // this.objectSetBank1.push(this.buildTile(marker,1));
+                this.objectSetBank1[indexMarker++] = this.buildTile(marker,1)
                 marker += 16;
             }
         }
@@ -120,6 +120,22 @@ export class TileLoader{
         return new Tile();
 
     }
+
+
+    public getObjectTile(index : number, bankIndex : number = 0) : Tile{
+        try {
+            if(bankIndex == 0){
+                return this.objectSetBank0[index];
+            }
+            else if (bankIndex == 1 ){
+                return this.objectSetBank1[index];
+            }            
+        } catch (error) {
+            console.log("invalid vram bank index specified")
+        }
+        return new Tile();
+
+    }    
 
     public buildTile( marker : number, bankIndex : number) : Tile {
         let tile = new Tile();

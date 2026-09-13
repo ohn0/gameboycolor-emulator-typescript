@@ -32,8 +32,8 @@ export class LCDController{
         return (this.value & 0b00001000) == 0 ? 0x9800 : 0x9C00;
     }
 
-    getObjSize() : string {
-        return (this.value & 0b00000100) == 0 ? "8x8" : "8x16";
+    getObjSize() : number {
+        return (this.value & 0b00000100) == 0 ? 8 : 16;
     }
 
     isObjEnabled() : boolean {
