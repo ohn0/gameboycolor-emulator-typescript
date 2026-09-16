@@ -7,7 +7,6 @@ import { TileMapManager } from "./tileMapManager";
 import { Palette } from "./Pallete";
 import { ObjectAttribute } from "./ObjectAttribute";
 import { Uint8 } from "../../primitives/uint8";
-import { vramBank } from "./vramBank";
 import { Attribute } from "./attributes";
 import { RamProxy } from "../RAM/ramProxy";
 import { InterruptHandler } from "../cpu/InterruptHandler";
@@ -39,7 +38,6 @@ export class PPU {
     LycValue : number  = 0;
     PPUmodeSTAT : number = 0;
     objsToDraw : Array<Array<Array<number>>> = [];
-    vramBank! : vramBank;
     readonly oamBaseAddress = 0xFE00; 
     worker! : Worker;
     LY : number = 0;
@@ -89,11 +87,9 @@ export class PPU {
         this.lcdcFlag = new LCDController(this.ram.read(0xFF40).value);
         this.currentBankIndex = this.ram.read(0xFF4F).value;
         this.cgbModeEnabled = this.ram.read(143).value == 0x80 || this.ram.read(143).value == 0xC0;
-        this.vramBank = new vramBank(this.ram.readBlock(0x8000, 0x9FFF), this.cgbModeEnabled, this.ram);
-        this.tileLoaderBank =  new TileLoader(this.vramBank);
-        let vramBankRegister : number = this.ram.read(0xFF4F).value;
-        this.tileMap9800 = new TileMapManager(0x9800,0x9800, 0, this.vramBank, this.cgbModeEnabled);
-        this.tileMap9C00 = new TileMapManager(0x9C00,0x9C00, 0, this.vramBank, this.cgbModeEnabled);
+        this.tileLoaderBank =  new TileLoader(this.ram);
+        this.tileMap9800 = new TileMapManager(0x9800,0x9800, this.ram, this.cgbModeEnabled);
+        this.tileMap9C00 = new TileMapManager(0x9C00,0x9C00,this.ram, this.cgbModeEnabled);
         this.BCPS = this.ram.read(0xFF68).value;
         this.BCPD = this.ram.read(this.BCPS).value;
         this.getViewPortBoundary(this.ram.read(0xFF42).value, this.ram.read(0xFF43).value);
@@ -182,14 +178,12 @@ export class PPU {
         let backgroundEnabled = this.lcdcFlag.BgWinPriority();
         let setBgToWhite = false;
         if(this.cgbModeEnabled && refreshTileData){
-            this.tileLoaderBank.pullTileData(this.lcdcFlag, 0, this.vramBank);
-            this.tileLoaderBank.pullTileData(this.lcdcFlag, 1, this.vramBank);
+            this.tileLoaderBank.pullTileData(this.lcdcFlag);
+            this.tileLoaderBank.pullTileData(this.lcdcFlag);
         }
         else if(!this.cgbModeEnabled && refreshTileData){
-            this.tileLoaderBank.pullTileData(this.lcdcFlag, 0, this.vramBank);
+            this.tileLoaderBank.pullTileData(this.lcdcFlag);
         }
-        //         this.tileMap9800.tiles.update(this.vramBank, this.ram.read(0xFF4F).value);
-        // this.tileMap9C00.tiles.update(this.vramBank, this.ram.read(0xFF4F).value);
         this.maps = this.getBgAndWindowTileMaps();
 
         var pixelIndexY = 0
@@ -534,23 +528,8 @@ export class PPU {
         return tileArray;
     }    
 
-    readVram(index : number) : number{
-        return this.vramBank.read(this.ram.read(0xFF4F).value, index);
-    }
-
-    changeBanks(newBank : number){
-        this.vramBank.copyBankToRam(newBank, 
-            (bank : Array<number>) => {
-                this.ram.writeBlock(0, bank.length, new Uint8Array(bank))
-            }
-        );
-    }
 
 
-    updateVramBank(value : number, index : number)
-    {
-        this.vramBank.write(this.ram.read(0xFF4F).value, index, value);
-    }
 
     getRgbColor(index : number, palette : number, isObj : boolean) : Color
     {
@@ -673,7 +652,6 @@ export class PPU {
             }
 
             if(payload.action == "changeBanks"){
-                this.changeBanks(payload.newBank);
                 this.currentBankIndex = payload.newBank;
             }
 
@@ -681,10 +659,8 @@ export class PPU {
                 var currentBank = this.getCurrentBank();
                 for(let i = 0; i < payload.data.length; i++){
                     if(currentBank == 0){
-                        this.vramBank.write(0,payload.destination+i,payload.data[i])
                     }
                     else{
-                        this.vramBank.write(1,payload.destination+i,payload.data[i])
                     }
                 }
             }   
@@ -703,12 +679,9 @@ export class PPU {
         output.fill(new Array<number>(144));
         // this.vramBank = new vramBank(this.ram.readBlock(0x8000, 0x9FFF), this.getCurrentBank());
         this.lcdcFlag.update(this.ram.read(0xFF40).value);
-        this.tileLoaderBank.pullTileData(this.lcdcFlag, this.getCurrentBank(), this.vramBank);
         let testTile = new Uint8Array([0x3C, 0x7E, 0xFF, 0x42, 0x42, 0x42, 0x42, 0x42, 0x7E, 0x5E, 0x7E, 0x0A, 0x7C, 0x56, 0x38, 0x7C]);
         // this.ram.writeBlock(0x8000, 0x800F, testTile);
         for(let i = 0; i < 16; i+=2){
-            // this.vramBank.write(0, i, testTile[i])
-            // this.vramBank.write(0, i+1, testTile[i+1])
             // this.PaletteRam.ObjPaletteRam[i] = new Uint8(0xF0);
             // this.PaletteRam.ObjPaletteRam[i+1] = new Uint8(0x7C);
             // this.PaletteRam.BgPaletteRam[i] = new Uint8(0xF0);
@@ -827,7 +800,7 @@ export class PPU {
     intervalRender(){
         window.setInterval(() => {
             if(this.ram.read(0xFF4F).value != this.currentBankIndex){
-                this.changeBanks(this.ram.read(0xFF4F).value);
+                // this.changeBanks(this.ram.read(0xFF4F).value);
             }
             if(this.LY == this.LycValue){
                 this.LycEqualsLySTAT = true;
@@ -866,7 +839,7 @@ export class PPU {
 
         while(this.LY <= 153){
             if(this.ram.read(0xFF4F).value != this.currentBankIndex){
-                this.changeBanks(this.ram.read(0xFF4F).value);
+                // this.changeBanks(this.ram.read(0xFF4F).value);
             }
             if(this.LY == this.LycValue){
                 this.LycEqualsLySTAT = true;
@@ -899,7 +872,7 @@ export class PPU {
         this.generatedLineIndex = 0;
         if(this.LY <= 153){
             if(this.ram.read(0xFF4F).value != this.currentBankIndex){
-                this.changeBanks(this.ram.read(0xFF4F).value);
+                // this.changeBanks(this.ram.read(0xFF4F).value);
             }
             if(this.LY < 144){
                 this.buildObjectAttributes();                

@@ -1,4 +1,4 @@
-import { vramBank } from "./vramBank";
+import { RamProxy } from "../RAM/ramProxy";
 
 export class Tile {
     data : Uint8Array;
@@ -8,10 +8,11 @@ export class Tile {
         this.startIndex = 0;
     }
 
-    public populate(vram : vramBank, currentBank : number){
-        let index = this.startIndex;
+    public populate(ram : RamProxy, currentBank : number){
+        let index = this.startIndex + 0x8000;
         for (let i = 0; i < this.data.length; i++) {
-            this.data[i] = vram.read(currentBank, index++);
+            this.data[i] = ram.read(index , currentBank).value;
+            index++;
         }
     }
 

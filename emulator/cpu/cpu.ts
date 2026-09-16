@@ -1093,7 +1093,6 @@ export class CPU {
             var currentPpuMode = this.ppuMode;
             //need to not write during mode 3
             if(currentPpuMode != 3){
-                // this.PPU.updateVramBank(value, address);
                 //we are updating the tile map region
                 //so we need to also update the tileloader
                 // this.PPU.setTilesChanged(true);

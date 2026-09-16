@@ -1,6 +1,6 @@
+import { RamProxy } from "../RAM/ramProxy";
 import { LCDController } from "./LCDcontroller";
 import { Tile } from "./tile";
-import { vramBank } from "./vramBank";
 
 export class TileLoader{
     tileSetBank0 : Array<Tile>;
@@ -10,22 +10,20 @@ export class TileLoader{
     bgWinAddressingMode = 0x8000;
     objectAddressingMode = 0x8000;
     currentBank : number;
-    vram : vramBank;
+    ram : RamProxy;
     //this class should run AFTER the cpu is done it's tick
-    constructor(vram : vramBank){
+    constructor(ram : RamProxy){
         this.tileSetBank0 = new Array<Tile>(256);
         this.tileSetBank1 = new Array<Tile>(256);
         this.objectSetBank0 = new Array<Tile>(256);
         this.objectSetBank1 = new Array<Tile>(256);
         this.currentBank = 0;
-        this.vram = vram;
+        this.ram = ram;
     }    
 
-    public pullTileData( lcdcFlag : LCDController, currentBank : number, vram : vramBank){
+    public pullTileData( lcdcFlag : LCDController){
         //if LCDC.4 = 1, BG/WIN read from block 0  and block 1
         //if LCDC.4 = 0, BG/WIN read from block 1 and block 2
-        this.vram = vram;
-        this.currentBank = currentBank;
         let readMode = lcdcFlag.getAddressingMode();
         this.bgWinAddressingMode = readMode == 0x8000 ? 0x8000 : 0x9000;
         this.populateBgWinData();
@@ -140,7 +138,7 @@ export class TileLoader{
     public buildTile( marker : number, bankIndex : number) : Tile {
         let tile = new Tile();
         tile.startIndex = marker;
-        tile.populate(this.vram, bankIndex);
+        tile.populate(this.ram, bankIndex);
         return tile;
     }
 

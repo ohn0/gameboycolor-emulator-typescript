@@ -27,7 +27,7 @@ export class RamProxy {
         this.ramLoaded = true;
     }
 
-    read(address: number): Uint8
+    read(address: number, bank : number = 0): Uint8
     {
         if(!this.ramLoaded) return new Uint8(0);
         if(address == 0xFF4F){
@@ -37,6 +37,8 @@ export class RamProxy {
             return new Uint8(this.sharedArray[address]);
         }
             // return new Uint8(this.sharedArray[address]);
+        if(bank == 1) return this.ram.readBank1(address);
+
         return this.ram.read(address);
     }
 
@@ -49,10 +51,14 @@ export class RamProxy {
         }
     }
 
-    readBlock(start : number, end : number) : Uint8Array {
+    readBlock(start : number, end : number, bank : number = 0) : Uint8Array {
         let output : Uint8Array = new Uint8Array(end - start);
+        var readFromBank1 = bank == 1;
         for(let i = 0; i < (end - start); i++){
-            output[i] = this.ram.read(start + i).value;
+            if(readFromBank1)
+                output[i] = this.ram.readBank1(start + i).value;
+            else
+                output[i] = this.ram.readBank1(start + i).value;
         }
 
         if(this.useSAB){

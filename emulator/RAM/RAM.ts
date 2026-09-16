@@ -1,7 +1,5 @@
 import { Logger } from "../../logger/logger";
 import { Uint8 } from "../../primitives/uint8";
-import { CPU } from "../cpu/cpu";
-import { vramBank } from "../graphics/vramBank";
 import { iMBC } from "../MemoryBankControllers/iMBC";
 import { dmaTransferer } from "./dmaTransferer";
 
@@ -120,6 +118,10 @@ export class RAM{
         }
 
         throw new Error(`mapped address is invalid. Original address = ${address}`);
+    }
+
+    public readBank1(address: number): Uint8 {
+        return new Uint8(this.vramBank1[address - 0x8000]);
     }
 
     public readBin(address : number) : Uint8{
