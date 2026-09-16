@@ -156,10 +156,10 @@ export async function runCpu(z : romModule[]) {
 }
 
 // runExecutor(mbcTester);
-runExecutor(dmgAcidTest);
+// runExecutor(dmgAcidTest);
 // runExecutor(cgbAcidTest);
 // runExecutor(zeldaTest);
-// runExecutor(tetrisTest);    
+runExecutor(tetrisTest);    
 // runExecutor(haltBugTester);
 // GET halt working
 // check and make sure interrupts are not constantly firing

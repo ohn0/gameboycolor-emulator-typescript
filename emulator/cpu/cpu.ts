@@ -3,7 +3,7 @@ import { InterruptHandler } from './InterruptHandler';
 import { counter } from './timers/counter';
 import { divider } from './timers/divider';
 import { clock } from './timers/clock';
-import { INTERRUPT_SOURCES, OPCODE_COSTS_T_STATES, OPCODE_COST_8 } from './constants';
+import { INTERRUPT_SOURCES, OPCODE_COSTS_T_STATES } from './constants';
 import { BitwiseOperationSolver } from './bitwiseOperationSolver';
 import { Register8bit } from './register';
 import { FlagRegister } from "./FlagRegister";
@@ -12,7 +12,6 @@ import { StackPointer } from "./StackPointer";
 import { HiLoRegister } from "./HiLoRegister";
 import { Uint8 } from '../../primitives/uint8';
 import { controlState, controlStates } from './timers/controlStates';
-import { Interrupt } from './interrupt';
 import { RAM } from '../RAM/RAM';
 import { Logger } from '../../logger/logger';
 import { Uint16 } from '../../primitives/uint16';
@@ -97,17 +96,10 @@ export class CPU {
         this.BC = new HiLoRegister(this.B, this.C, "BC");
         this.DE = new HiLoRegister(this.D, this.E, "DE");
         this.HL = new HiLoRegister(this.H, this.L, "HL");
-        // this.tz = new SharedArrayBuffer(0x10000);
         this.SP = new StackPointer(0xFF,0xFF, "SP");
         this.PC = new ProgramCounter("PC");
-        // this.interruptHandler = new InterruptHandler(this.logger);
-        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_VBLANK, 0x40, 1, 0));
-        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_LCD_STAT, 0x48, 2, 1));
-        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_TIMER, 0x50, 3, 2));
-        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_SERIAL, 0x58, 4, 3));
-        // this.interruptHandler.addInterrupt(new Interrupt(INTERRUPT_SOURCES.INTERRUPT_JOYPAD, 0x60, 5, 4));
+
         this.RAM = ram;
-        // this.PPU = new PPU(this.RAM, this.interruptHandler, this.logger);
         this.debugState = false;
         this.registersLibrary8bit = {
             "A": this.A,
